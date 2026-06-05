@@ -1,0 +1,394 @@
+:root {
+  color-scheme: light;
+  --bg: #f2f3f5;
+  --panel: #ffffff;
+  --text: #15171a;
+  --muted: #69707a;
+  --line: #d8dde5;
+  --soft: #f7f8fa;
+  --accent: #276ef1;
+  --shadow: 0 12px 32px rgba(18, 28, 45, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea,
+.masked-editor {
+  font: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(560px, 1fr) minmax(340px, 0.42fr);
+  gap: 16px;
+  height: 100vh;
+  padding: 16px;
+}
+
+.panel {
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.privacy-panel,
+.workspace-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 72px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.icon-button,
+.text-button,
+.field-action {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.text-button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.segmented-control {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.segment {
+  min-height: 34px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.segment:last-child {
+  border-right: 0;
+}
+
+.segment.is-active {
+  background: var(--text);
+  color: #fff;
+}
+
+.field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.field-card {
+  display: grid;
+  grid-template-columns: 14px minmax(66px, 0.65fr) minmax(120px, 1fr) 30px;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--field-color);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.field-card.dragging {
+  opacity: 0.55;
+}
+
+.drag-handle {
+  color: var(--muted);
+  cursor: grab;
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
+}
+
+.field-key {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 8px;
+  font-weight: 700;
+  outline: none;
+}
+
+.field-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+.field-value {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 8px;
+  outline: none;
+}
+
+.field-value:focus,
+.field-key:focus,
+textarea:focus,
+.masked-editor:focus {
+  border-color: var(--accent);
+}
+
+textarea {
+  flex: 1;
+  min-height: 240px;
+  resize: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 18px;
+  outline: none;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.section-title {
+  padding: 10px 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-view {
+  display: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-view.is-active {
+  display: flex;
+  flex-direction: column;
+}
+
+.masked-editor {
+  flex: 1;
+  overflow: auto;
+  border: 0;
+  outline: none;
+  padding: 16px;
+  background: var(--soft);
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+.token {
+  display: inline;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--token-color), white 76%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--token-color), black 12%);
+  font-weight: 700;
+}
+
+.resume-page {
+  overflow: auto;
+  margin: 0;
+  padding: 34px 42px;
+  background: #fff;
+  line-height: 1.48;
+}
+
+.resume-page .resume-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.resume-page .resume-name {
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.resume-page .resume-title {
+  margin-top: 5px;
+  color: #4b5563;
+  font-size: 15px;
+}
+
+.resume-page .resume-contact {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: right;
+}
+
+.resume-page .entry-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 0 5px;
+}
+
+.resume-page .entry-main {
+  font-weight: 760;
+}
+
+.resume-page .entry-meta {
+  color: #5f6875;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.resume-page h1 {
+  font-size: 30px;
+  margin-bottom: 4px;
+}
+
+.resume-page h2 {
+  margin: 24px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #b8c0cc;
+  font-size: 17px;
+}
+
+.resume-page h3 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+}
+
+.resume-page p {
+  margin: 7px 0;
+}
+
+.resume-page ul {
+  margin: 7px 0 12px 20px;
+  padding: 0;
+}
+
+.resume-page li {
+  margin: 4px 0;
+}
+
+.resume-page strong {
+  font-weight: 750;
+}
+
+.resume-page a {
+  color: inherit;
+}
+
+@media (max-width: 1120px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .panel {
+    min-height: 420px;
+  }
+
+  .workspace-panel {
+    min-height: 720px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .privacy-panel,
+  .workspace-panel > .panel-header {
+    display: none;
+  }
+
+  #sourceView {
+    display: none;
+  }
+
+  #previewView {
+    display: block;
+  }
+
+  .app-shell {
+    display: block;
+    height: auto;
+    padding: 0;
+  }
+
+  .panel {
+    border: 0;
+    box-shadow: none;
+  }
+
+  .resume-page {
+    padding: 0;
+    overflow: visible;
+  }
+}

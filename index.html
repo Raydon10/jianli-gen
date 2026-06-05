@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jianli Shield Gen</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel workspace-panel">
+        <div class="panel-header">
+          <div>
+            <h1 id="workspaceTitle">公开信息</h1>
+          </div>
+          <div class="header-actions">
+            <div class="segmented-control" aria-label="切换视图">
+              <button class="segment is-active" id="showSource">公开信息</button>
+              <button class="segment" id="showPreview">简历预览</button>
+            </div>
+            <button class="text-button" id="generateResume">生成预览</button>
+            <button class="text-button" id="resetDemo">恢复示例</button>
+            <button class="text-button" id="printResume">导出 PDF</button>
+          </div>
+        </div>
+        <div class="workspace-view is-active" id="sourceView">
+          <div class="section-title">发送给 AI 的脱敏内容</div>
+          <div class="masked-editor" id="maskedEditor" contenteditable="true" spellcheck="false"></div>
+        </div>
+        <div class="workspace-view" id="previewView">
+          <article class="resume-page" id="resumePreview"></article>
+        </div>
+      </section>
+
+      <section class="panel privacy-panel">
+        <div class="panel-header">
+          <div>
+            <h2>隐私信息</h2>
+          </div>
+          <button class="icon-button" id="addField" title="添加字段">+</button>
+        </div>
+        <div class="field-list" id="fieldList"></div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
