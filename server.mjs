@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const dataDir = join(root, "data");
-const publicPath = join(dataDir, "public.md");
-const publicMaskedPath = join(dataDir, "public.masked.md");
+const publicMaskedPath = join(dataDir, "ai-input.md");
+const legacyAiInputPath = join(dataDir, "ai.md");
+const legacyPublicMaskedPath = join(dataDir, "public.masked.md");
 const privatePath = join(dataDir, "private.enc.json");
 const statePath = join(dataDir, "state.json");
 const port = Number(process.env.PORT || 8790);
@@ -82,33 +83,17 @@ async function handleApi(request, response) {
     return true;
   }
 
-  if (request.url === "/api/public" && request.method === "GET") {
-    if (!(await exists(publicPath))) {
-      send(response, 404, "Not found");
-      return true;
-    }
-    send(response, 200, await readFile(publicPath, "utf8"), "text/plain; charset=utf-8");
-    return true;
-  }
-
-  if (request.url === "/api/public" && request.method === "PUT") {
-    const body = await readBody(request);
-    await ensureDataDir();
-    await writeFile(publicPath, body);
-    const state = await updateState({
-      publicSavedAt: new Date().toISOString(),
-      publicHash: hash(body)
-    });
-    send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
-    return true;
-  }
-
   if (request.url === "/api/public-masked" && request.method === "GET") {
-    if (!(await exists(publicMaskedPath))) {
+    if (!(await exists(publicMaskedPath)) && !(await exists(legacyAiInputPath)) && !(await exists(legacyPublicMaskedPath))) {
       send(response, 404, "Not found");
       return true;
     }
-    send(response, 200, await readFile(publicMaskedPath, "utf8"), "text/plain; charset=utf-8");
+    const path = (await exists(publicMaskedPath))
+      ? publicMaskedPath
+      : (await exists(legacyAiInputPath))
+        ? legacyAiInputPath
+        : legacyPublicMaskedPath;
+    send(response, 200, await readFile(path, "utf8"), "text/plain; charset=utf-8");
     return true;
   }
 

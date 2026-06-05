@@ -133,9 +133,9 @@ let fields = demoFields.map((field, index) => ({
   color: colors[index % colors.length]
 }));
 
+let publicDraftMarkdown = "";
 let maskedMarkdown = "";
 let savedMaskedPublicMarkdown = "";
-let legacyPublicMarkdown = "";
 let savedPrivateFingerprint = "";
 let savedPrivateKeys = [];
 let privateUnlocked = false;
@@ -151,10 +151,10 @@ const resumePreview = document.querySelector("#resumePreview");
 const addFieldButton = document.querySelector("#addField");
 const printButton = document.querySelector("#printResume");
 const regeneratePublicButton = document.querySelector("#regeneratePublic");
-const sourceView = document.querySelector("#sourceView");
-const previewView = document.querySelector("#previewView");
-const showSourceButton = document.querySelector("#showSource");
-const showPreviewButton = document.querySelector("#showPreview");
+const publicView = document.querySelector("#publicView");
+const aiView = document.querySelector("#aiView");
+const showPublicButton = document.querySelector("#showPublic");
+const showAIButton = document.querySelector("#showAI");
 const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
 const saveAllButton = document.querySelector("#saveAll");
@@ -163,6 +163,17 @@ const aiStatusBar = document.querySelector("#aiStatusBar");
 const privateStatusBar = document.querySelector("#privateStatusBar");
 const toast = document.querySelector("#toast");
 let toastTimer = null;
+
+if (maskedEditor) {
+  maskedEditor.value = "";
+  maskedEditor.defaultValue = "";
+}
+if (maskedPreview) {
+  maskedPreview.innerHTML = '<div class="empty-hint">AI 读取的内容会在这里显示</div>';
+}
+if (resumePreview) {
+  resumePreview.innerHTML = "";
+}
 
 function escapeHtml(value) {
   return value
@@ -221,9 +232,9 @@ function cloneFields(sourceFields) {
 function applySample(sample, options = {}) {
   const { preservePrivateLock = false } = options;
   fields = cloneFields(sample.fields);
+  publicDraftMarkdown = sample.publicMarkdown;
   maskedMarkdown = maskText(sample.publicMarkdown);
   savedMaskedPublicMarkdown = maskedMarkdown;
-  legacyPublicMarkdown = "";
   if (!preservePrivateLock) {
     privateUnlocked = true;
     hasEncryptedPrivate = false;
@@ -297,12 +308,8 @@ function renderFields() {
 
     card.querySelector(".field-key").addEventListener("input", event => {
       if (locked) return;
-      const previousKey = fields[index].key;
       const nextKey = event.target.value.trim();
       fields[index].key = nextKey;
-      if (previousKey && nextKey && savedMaskedPublicMarkdown) {
-        savedMaskedPublicMarkdown = savedMaskedPublicMarkdown.replace(new RegExp(escapeRegExp(`{{${previousKey}}}`), "g"), `{{${nextKey}}}`);
-      }
       renderMaskedEditor();
       syncMaskedPublicText();
       renderStatus();
@@ -373,24 +380,12 @@ function maskText(text, htmlMode = false) {
   return output;
 }
 
-function getCurrentPublicDraftText() {
-  return maskedEditor.value;
-}
-
 function getCurrentMaskedPublicText() {
-  const draft = getCurrentPublicDraftText();
   if (privateUnlocked && privateValuesResolved) {
-    return draft ? maskText(draft) : "";
+    return publicDraftMarkdown ? maskText(publicDraftMarkdown) : "";
   }
 
-  return draft;
-}
-
-function getVisibleMaskedPublicText() {
-  if (privateUnlocked && privateValuesResolved) {
-    return unmaskText(savedMaskedPublicMarkdown || legacyPublicMarkdown || "");
-  }
-  return getCurrentPublicDraftText() || savedMaskedPublicMarkdown || "";
+  return publicDraftMarkdown;
 }
 
 function unmaskText(text) {
@@ -430,14 +425,14 @@ function updateOutput() {
 }
 
 function renderMaskedEditor() {
-  maskedEditor.value = getVisibleMaskedPublicText();
+  maskedEditor.value = publicDraftMarkdown;
 }
 
 function renderMaskedPreview() {
   maskedMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "";
   maskedPreview.innerHTML = maskedMarkdown
     ? colorizeTokens(maskedMarkdown)
-    : '<div class="empty-hint">AI 读取的信息会在这里显示</div>';
+    : '<div class="empty-hint">AI 读取的内容会在这里显示</div>';
 }
 
 function syncMaskedPublicText() {
@@ -518,12 +513,12 @@ function regeneratePublicExample() {
   renderStatus();
 }
 
-function setWorkspaceView(view) {
-  const isSource = view === "source";
-  sourceView.classList.toggle("is-active", isSource);
-  previewView.classList.toggle("is-active", !isSource);
-  showSourceButton.classList.toggle("is-active", isSource);
-  showPreviewButton.classList.toggle("is-active", !isSource);
+function setPublicTab(view) {
+  const isPublic = view === "public";
+  publicView.classList.toggle("is-active", isPublic);
+  aiView.classList.toggle("is-active", !isPublic);
+  showPublicButton.classList.toggle("is-active", isPublic);
+  showAIButton.classList.toggle("is-active", !isPublic);
 }
 
 async function apiRead(path) {
@@ -541,19 +536,11 @@ async function loadSavedData() {
     hasEncryptedPrivate = Boolean(appState.privateEncrypted);
     savedPrivateKeys = Array.isArray(appState.privateFieldKeys) ? appState.privateFieldKeys : [];
 
-    const publicResponse = await apiRead("/api/public");
-    if (publicResponse) {
-      legacyPublicMarkdown = await publicResponse.text();
-    } else {
-      applySample(demoSamples[0], { preservePrivateLock: true });
-      legacyPublicMarkdown = "";
-    }
-
     const maskedResponse = await apiRead("/api/public-masked");
     if (maskedResponse) {
       savedMaskedPublicMarkdown = await maskedResponse.text();
-    } else if (legacyPublicMarkdown && !hasEncryptedPrivate) {
-      savedMaskedPublicMarkdown = maskText(legacyPublicMarkdown);
+    } else {
+      savedMaskedPublicMarkdown = "";
     }
 
     if (hasEncryptedPrivate) {
@@ -570,16 +557,21 @@ async function loadSavedData() {
       privateValuesResolved = false;
       savedPrivateFingerprint = privateFingerprint();
     } else {
+      if (!savedMaskedPublicMarkdown) {
+        applySample(demoSamples[0], { preservePrivateLock: true });
+      }
       savedPrivateFingerprint = privateFingerprint();
       privateUnlocked = true;
       privateValuesResolved = true;
-      if (!savedMaskedPublicMarkdown) {
-        savedMaskedPublicMarkdown = maskText(legacyPublicMarkdown || "");
-      }
     }
+
+    publicDraftMarkdown = privateUnlocked && privateValuesResolved
+      ? unmaskText(savedMaskedPublicMarkdown || "")
+      : hasEncryptedPrivate
+        ? savedMaskedPublicMarkdown || ""
+        : savedMaskedPublicMarkdown || publicDraftMarkdown || "";
   } catch {
     applySample(demoSamples[0], { preservePrivateLock: true });
-    legacyPublicMarkdown = "";
     savedPrivateFingerprint = privateFingerprint();
     privateUnlocked = true;
     privateValuesResolved = true;
@@ -702,7 +694,9 @@ async function clearPrivateData() {
 async function unlockPrivateData() {
   if (privateUnlocked) {
     privateUnlocked = false;
+    publicDraftMarkdown = savedMaskedPublicMarkdown || maskText(publicDraftMarkdown);
     renderFields();
+    renderMaskedEditor();
     renderMaskedPreview();
     generateResumePreview();
     renderStatus();
@@ -729,7 +723,8 @@ async function unlockPrivateData() {
     }
     privateUnlocked = true;
     privateValuesResolved = true;
-    savedMaskedPublicMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || maskText(legacyPublicMarkdown || "");
+    publicDraftMarkdown = unmaskText(savedMaskedPublicMarkdown || publicDraftMarkdown || "");
+    savedMaskedPublicMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown;
     await saveMaskedPublicData();
     renderMaskedEditor();
     renderFields();
@@ -779,22 +774,22 @@ async function saveAllData() {
   }
 
   if (publicSaved && privateSaved) {
-    setStatus("AI读取的信息和隐私信息已保存", "ok");
+    setStatus("AI读取的内容和隐私信息已保存", "ok");
     return;
   }
 
   if (publicSaved && privateNeedsKey) {
-    setStatus("AI读取的信息已保存，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
+    setStatus("AI读取的内容已保存，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
     return;
   }
 
   if (publicSaved && privateFailed) {
-    setStatus("AI读取的信息已保存，隐私信息保存失败", "warning");
+    setStatus("AI读取的内容已保存，隐私信息保存失败", "warning");
     return;
   }
 
   if (publicSaved && !privateChanged) {
-    setStatus("AI读取的信息已保存", "ok");
+    setStatus("AI读取的内容已保存", "ok");
     return;
   }
 
@@ -814,12 +809,12 @@ async function saveAllData() {
   }
 
   if (publicFailed && privateSaved) {
-    setStatus("AI读取的信息保存失败，隐私信息已保存", "warning");
+    setStatus("AI读取的内容保存失败，隐私信息已保存", "warning");
     return;
   }
 
   if (publicFailed && privateNeedsKey) {
-    setStatus("AI读取的信息保存失败，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
+    setStatus("AI读取的内容保存失败，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
     return;
   }
 
@@ -839,7 +834,7 @@ async function saveMaskedPublicData() {
   });
 
   if (!response.ok) {
-    throw new Error("AI 读取的信息保存失败");
+    throw new Error("AI 读取的内容保存失败");
   }
 
   appState = await response.json();
@@ -865,8 +860,8 @@ printButton.addEventListener("click", () => {
   generateResumePreview();
   window.print();
 });
-showSourceButton.addEventListener("click", () => setWorkspaceView("source"));
-showPreviewButton.addEventListener("click", () => setWorkspaceView("preview"));
+showPublicButton.addEventListener("click", () => setPublicTab("public"));
+showAIButton.addEventListener("click", () => setPublicTab("ai"));
 unlockPrivateButton.addEventListener("click", unlockPrivateData);
 saveAllButton.addEventListener("click", saveAllData);
 clearPrivateButton.addEventListener("click", clearPrivateData);
@@ -878,11 +873,13 @@ clearPrivateButton.addEventListener("keydown", event => {
 });
 privateKeyInput.addEventListener("input", () => renderStatus());
 maskedEditor.addEventListener("input", () => {
+  publicDraftMarkdown = maskedEditor.value;
   syncMaskedPublicText();
   renderStatus();
 });
 
 publicSampleIndex = 0;
+setPublicTab("public");
 renderFields();
 renderMaskedEditor();
 renderMaskedPreview();

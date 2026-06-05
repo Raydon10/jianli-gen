@@ -67,19 +67,21 @@ textarea {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0;
+  gap: 1px;
   flex: 1;
+  background: var(--line);
 }
 
 .left-columns > .panel {
   min-height: 0;
   border-radius: 0;
   box-shadow: none;
+  border: 0;
   background: #fff;
 }
 
 .public-panel {
-  border-right: 1px solid var(--line);
+  border-right: 0;
 }
 
 .panel-header {
@@ -100,8 +102,21 @@ textarea {
   min-width: 0;
 }
 
+.public-panel .panel-header .header-actions {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.public-panel .panel-header {
+  justify-content: flex-start;
+}
+
+.public-panel .segmented-control {
+  flex: 0 0 auto;
+}
+
 .workspace-panel > .panel-header {
-  justify-content: flex-end;
+  justify-content: space-between;
 }
 
 h1,
@@ -554,11 +569,6 @@ textarea {
   color: inherit;
 }
 
-.public-panel > .panel-header,
-.privacy-panel > .panel-header {
-  min-height: 56px;
-}
-
 .left-rail > .panel-header {
   border-bottom: 1px solid var(--line);
 }
@@ -594,13 +604,8 @@ textarea {
   }
 
   .public-panel,
-  .privacy-panel,
-  #sourceView {
+  .privacy-panel {
     display: none;
-  }
-
-  #previewView {
-    display: block;
   }
 
   .app-shell {

@@ -19,14 +19,21 @@
         <div class="left-columns">
           <section class="panel public-panel">
             <div class="panel-header">
-              <div class="title-with-status">
-                <h2>公开信息</h2>
-              </div>
               <div class="header-actions">
+                <div class="segmented-control" aria-label="内容切换">
+                  <button class="segment is-active" id="showPublic">原始简历编辑</button>
+                  <button class="segment" id="showAI">AI 读取的内容</button>
+                </div>
+                <div class="status-inline" id="aiStatusBar"></div>
                 <button class="text-button" id="regeneratePublic">重新生成示例</button>
               </div>
             </div>
-            <textarea class="masked-editor" id="maskedEditor" spellcheck="false"></textarea>
+            <div class="workspace-view is-active" id="publicView">
+              <textarea class="masked-editor" id="maskedEditor" spellcheck="false"></textarea>
+            </div>
+            <div class="workspace-view" id="aiView">
+              <div class="masked-preview" id="maskedPreview"></div>
+            </div>
           </section>
 
           <section class="panel privacy-panel">
@@ -52,21 +59,12 @@
 
       <section class="panel workspace-panel">
         <div class="panel-header">
+          <h2>简历预览</h2>
           <div class="header-actions">
-            <div class="segmented-control" aria-label="切换视图">
-              <button class="segment is-active" id="showSource">AI 读取的信息</button>
-              <button class="segment" id="showPreview">简历预览</button>
-            </div>
-            <div class="status-inline" id="aiStatusBar"></div>
             <button class="text-button" id="printResume">导出 PDF</button>
           </div>
         </div>
-        <div class="workspace-view is-active" id="sourceView">
-          <div class="masked-preview" id="maskedPreview"></div>
-        </div>
-        <div class="workspace-view" id="previewView">
-          <article class="resume-page" id="resumePreview"></article>
-        </div>
+        <article class="resume-page" id="resumePreview"></article>
       </section>
     </main>
 
