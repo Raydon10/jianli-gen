@@ -134,8 +134,8 @@ let fields = demoFields.map((field, index) => ({
 }));
 
 let publicDraftMarkdown = "";
-let maskedMarkdown = "";
 let savedMaskedPublicMarkdown = "";
+let savedPrivateValues = {};
 let savedPrivateFingerprint = "";
 let savedPrivateKeys = [];
 let privateUnlocked = false;
@@ -143,18 +143,17 @@ let privateValuesResolved = false;
 let hasEncryptedPrivate = false;
 let appState = {};
 let publicSampleIndex = 0;
+let aiEditorFocused = false;
+let aiNormalizeTimer = null;
+let aiEditor = null;
+let aiRenderSignature = "";
 
 const fieldList = document.querySelector("#fieldList");
-const maskedEditor = document.querySelector("#maskedEditor");
 const maskedPreview = document.querySelector("#maskedPreview");
 const resumePreview = document.querySelector("#resumePreview");
 const addFieldButton = document.querySelector("#addField");
 const printButton = document.querySelector("#printResume");
 const regeneratePublicButton = document.querySelector("#regeneratePublic");
-const publicView = document.querySelector("#publicView");
-const aiView = document.querySelector("#aiView");
-const showPublicButton = document.querySelector("#showPublic");
-const showAIButton = document.querySelector("#showAI");
 const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
 const saveAllButton = document.querySelector("#saveAll");
@@ -164,12 +163,8 @@ const privateStatusBar = document.querySelector("#privateStatusBar");
 const toast = document.querySelector("#toast");
 let toastTimer = null;
 
-if (maskedEditor) {
-  maskedEditor.value = "";
-  maskedEditor.defaultValue = "";
-}
 if (maskedPreview) {
-  maskedPreview.innerHTML = '<div class="empty-hint">AI 读取的内容会在这里显示</div>';
+  maskedPreview.innerHTML = "";
 }
 if (resumePreview) {
   resumePreview.innerHTML = "";
@@ -203,10 +198,165 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function normalizeAiText(text) {
+  return (text || "").replace(/\r\n?/g, "\n");
+}
+
+function getSharedTextBounds(current, saved) {
+  const currentText = normalizeAiText(current || "");
+  const savedText = normalizeAiText(saved || "");
+
+  if (!savedText) {
+    return {
+      prefix: 0,
+      suffix: 0,
+      currentLength: currentText.length,
+      savedLength: 0
+    };
+  }
+
+  const limit = Math.min(currentText.length, savedText.length);
+  let prefix = 0;
+  while (prefix < limit && currentText[prefix] === savedText[prefix]) {
+    prefix += 1;
+  }
+
+  let suffix = 0;
+  const currentRemain = currentText.length - prefix;
+  const savedRemain = savedText.length - prefix;
+  while (
+    suffix < currentRemain &&
+    suffix < savedRemain &&
+    currentText[currentText.length - 1 - suffix] === savedText[savedText.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  return {
+    prefix,
+    suffix,
+    currentLength: currentText.length,
+    savedLength: savedText.length
+  };
+}
+
+function isSpanSaved(start, end, bounds, currentText, savedText) {
+  if (!savedText) {
+    return false;
+  }
+
+  if (normalizeAiText(currentText) === normalizeAiText(savedText)) {
+    return true;
+  }
+
+  const savedSuffixStart = bounds.currentLength - bounds.suffix;
+  return end <= bounds.prefix || start >= savedSuffixStart;
+}
+
 function getActiveFields() {
   return fields
     .filter(field => field.key && field.value)
     .sort((a, b) => b.value.length - a.value.length);
+}
+
+function getTokenMappings() {
+  const mappings = [];
+  const currentValuesByKey = new Map(fields.map(field => [field.key, field.value]));
+
+  fields.forEach(field => {
+    if (field.key && field.value) {
+      mappings.push({
+        key: field.key,
+        value: field.value,
+        source: "current"
+      });
+    }
+  });
+
+  Object.entries(savedPrivateValues).forEach(([key, value]) => {
+    if (!key || !value) {
+      return;
+    }
+    if (currentValuesByKey.get(key) === value) {
+      return;
+    }
+    mappings.push({
+      key,
+      value,
+      source: "saved"
+    });
+  });
+
+  return mappings.sort((a, b) => {
+    if (b.value.length !== a.value.length) {
+      return b.value.length - a.value.length;
+    }
+    if (a.source === b.source) {
+      return 0;
+    }
+    return a.source === "current" ? -1 : 1;
+  });
+}
+
+function getFieldByKey(key) {
+  return fields.find(field => field.key === key);
+}
+
+function getTokenLabel(key) {
+  return `{{${key}}}`;
+}
+
+function normalizePlainTextSegment(segment, offset = 0, caretIndex = null) {
+  const active = getActiveFields();
+  let output = "";
+  let cursor = 0;
+  let nextCaret = caretIndex;
+  let caretLocked = false;
+
+  while (cursor < segment.length) {
+    let bestField = null;
+    let bestIndex = -1;
+
+    for (const field of active) {
+      const index = segment.indexOf(field.value, cursor);
+      if (index === -1) {
+        continue;
+      }
+      if (bestIndex === -1 || index < bestIndex || (index === bestIndex && field.value.length > (bestField?.value?.length || 0))) {
+        bestField = field;
+        bestIndex = index;
+      }
+    }
+
+    if (!bestField) {
+      output += segment.slice(cursor);
+      break;
+    }
+
+    if (bestIndex > cursor) {
+      output += segment.slice(cursor, bestIndex);
+    }
+
+    const token = getTokenLabel(bestField.key);
+    const matchStart = offset + bestIndex;
+    const matchEnd = matchStart + bestField.value.length;
+    if (caretIndex != null && !caretLocked) {
+      if (caretIndex > matchStart && caretIndex < matchEnd) {
+        nextCaret = output.length + token.length;
+        caretLocked = true;
+      } else if (caretIndex >= matchEnd) {
+        nextCaret += token.length - bestField.value.length;
+      }
+    }
+
+    output += token;
+    cursor = bestIndex + bestField.value.length;
+  }
+
+  return {
+    text: output,
+    caretIndex: nextCaret
+  };
 }
 
 function privateFingerprint() {
@@ -232,9 +382,9 @@ function cloneFields(sourceFields) {
 function applySample(sample, options = {}) {
   const { preservePrivateLock = false } = options;
   fields = cloneFields(sample.fields);
-  publicDraftMarkdown = sample.publicMarkdown;
-  maskedMarkdown = maskText(sample.publicMarkdown);
-  savedMaskedPublicMarkdown = maskedMarkdown;
+  publicDraftMarkdown = maskText(sample.publicMarkdown);
+  savedMaskedPublicMarkdown = publicDraftMarkdown;
+  savedPrivateValues = Object.fromEntries(sample.fields.map(field => [field.key, field.value]));
   if (!preservePrivateLock) {
     privateUnlocked = true;
     hasEncryptedPrivate = false;
@@ -244,7 +394,7 @@ function applySample(sample, options = {}) {
 }
 
 function publicDirty() {
-  return getCurrentMaskedPublicText() !== savedMaskedPublicMarkdown;
+  return maskText(publicDraftMarkdown) !== savedMaskedPublicMarkdown;
 }
 
 function privateDirty() {
@@ -308,17 +458,24 @@ function renderFields() {
 
     card.querySelector(".field-key").addEventListener("input", event => {
       if (locked) return;
+      const previousKey = field.key;
       const nextKey = event.target.value.trim();
       fields[index].key = nextKey;
-      renderMaskedEditor();
-      syncMaskedPublicText();
+      publicDraftMarkdown = replaceTokenKey(publicDraftMarkdown, previousKey, nextKey);
+      if (!aiEditorFocused) {
+        renderAiEditor();
+      }
+      updateOutput();
       renderStatus();
     });
 
     card.querySelector(".field-value").addEventListener("input", event => {
       if (locked) return;
       fields[index].value = event.target.value;
-      syncMaskedPublicText();
+      if (!aiEditorFocused) {
+        renderAiEditor();
+      }
+      updateOutput();
       renderStatus();
     });
 
@@ -329,7 +486,10 @@ function renderFields() {
       }
       fields.splice(index, 1);
       renderFields();
-      syncMaskedPublicText();
+      if (!aiEditorFocused) {
+        renderAiEditor();
+      }
+      updateOutput();
       renderStatus();
     });
 
@@ -369,23 +529,23 @@ function moveField(fromIndex, toIndex) {
 function maskText(text, htmlMode = false) {
   let output = escapeHtml(text);
 
-  getActiveFields().forEach(field => {
-    const token = `{{${field.key}}}`;
+  getTokenMappings().forEach(mapping => {
+    const token = getTokenLabel(mapping.key);
     const replacement = htmlMode
-      ? `<span class="token" style="--token-color:${field.color}">${escapeHtml(token)}</span>`
+      ? `<span class="token" style="--token-color:${fields.find(field => field.key === mapping.key)?.color || "#8892a0"}">${escapeHtml(token)}</span>`
       : token;
-    output = output.replace(new RegExp(escapeRegExp(escapeHtml(field.value)), "g"), replacement);
+    output = output.replace(new RegExp(escapeRegExp(escapeHtml(mapping.value)), "g"), replacement);
   });
 
   return output;
 }
 
-function getCurrentMaskedPublicText() {
-  if (privateUnlocked && privateValuesResolved) {
-    return publicDraftMarkdown ? maskText(publicDraftMarkdown) : "";
+function replaceTokenKey(text, oldKey, newKey) {
+  if (!oldKey || oldKey === newKey) {
+    return text;
   }
 
-  return publicDraftMarkdown;
+  return text.replace(new RegExp(escapeRegExp(getTokenLabel(oldKey)), "g"), getTokenLabel(newKey));
 }
 
 function unmaskText(text) {
@@ -394,51 +554,399 @@ function unmaskText(text) {
   fields
     .filter(field => field.key && field.value)
     .forEach(field => {
-      output = output.replace(new RegExp(escapeRegExp(`{{${field.key}}}`), "g"), field.value);
-    });
-
-  return output;
-}
-
-function colorizeTokens(text) {
-  if (!text) {
-    return "";
-  }
-
-  let output = escapeHtml(text);
-
-  fields
-    .filter(field => field.key)
-    .forEach(field => {
-      const token = `{{${field.key}}}`;
-      const replacement = `<span class="token" style="--token-color:${field.color}">${escapeHtml(token)}</span>`;
-      output = output.replace(new RegExp(escapeRegExp(escapeHtml(token)), "g"), replacement);
+      output = output.replace(new RegExp(escapeRegExp(getTokenLabel(field.key)), "g"), field.value);
     });
 
   return output;
 }
 
 function updateOutput() {
-  if (!resumePreview.innerHTML.trim()) {
-    generateResumePreview();
+  generateResumePreview();
+}
+
+function serializedNodeLength(node) {
+  if (!node) {
+    return 0;
+  }
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent?.length || 0;
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return 0;
+  }
+
+  const element = node;
+  if (element.classList.contains("token-chip")) {
+    return getTokenLabel(element.dataset.tokenKey || "").length;
+  }
+
+  if (element.tagName === "BR") {
+    return 1;
+  }
+
+  let total = 0;
+  element.childNodes.forEach(child => {
+    total += serializedNodeLength(child);
+  });
+
+  if (element.tagName === "DIV" || element.tagName === "P") {
+    total += 1;
+  }
+
+  return total;
+}
+
+function getSerializedCaretIndex(root, range) {
+  let index = 0;
+  let found = false;
+
+  const visit = node => {
+    if (found || !node) {
+      return;
+    }
+
+    if (node === range.startContainer) {
+      found = true;
+      if (node.nodeType === Node.TEXT_NODE) {
+        index += range.startOffset;
+        return;
+      }
+
+      const element = node;
+      for (let i = 0; i < range.startOffset; i += 1) {
+        index += serializedNodeLength(element.childNodes[i]);
+      }
+      return;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
+      index += serializedNodeLength(node);
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      node.childNodes.forEach(visit);
+    }
+  };
+
+  visit(root);
+  return index;
+}
+
+function resolveSerializedPosition(root, targetIndex) {
+  let index = 0;
+
+  const walk = node => {
+    if (!node) {
+      return null;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      const length = node.textContent?.length || 0;
+      if (targetIndex <= index + length) {
+        return {
+          node,
+          offset: Math.max(0, targetIndex - index)
+        };
+      }
+      index += length;
+      return null;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    const element = node;
+    if (element.classList.contains("token-chip")) {
+      const tokenLength = getTokenLabel(element.dataset.tokenKey || "").length;
+      const parent = element.parentNode;
+      const childIndex = parent ? Array.prototype.indexOf.call(parent.childNodes, element) : 0;
+      if (targetIndex <= index) {
+        return {
+          node: parent || root,
+          offset: childIndex
+        };
+      }
+      if (targetIndex <= index + tokenLength) {
+        return {
+          node: parent || root,
+          offset: childIndex + 1
+        };
+      }
+      index += tokenLength;
+      return null;
+    }
+
+    for (const child of element.childNodes) {
+      const resolved = walk(child);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
+    if (node === root) {
+      return {
+        node: root,
+        offset: root.childNodes.length
+      };
+    }
+
+    return null;
+  };
+
+  return walk(root) || {
+    node: root,
+    offset: root.childNodes.length
+  };
+}
+
+function normalizeAiSourceTextWithCaret(text, caretIndex = null) {
+  const plain = normalizePlainTextSegment(normalizeAiText(text || ""), 0, caretIndex);
+  return plain;
+}
+
+function buildTokenChip(key, options = {}) {
+  const {
+    tokenValue = "",
+    tokenState = "saved",
+    tokenSource = "literal-token"
+  } = options;
+  const span = document.createElement("span");
+  span.className = "token-chip";
+  span.dataset.tokenState = tokenState;
+  span.dataset.tokenSource = tokenSource;
+  span.contentEditable = "false";
+  span.dataset.tokenKey = key;
+  span.dataset.tokenValue = tokenValue;
+  const field = fields.find(item => item.key === key);
+  if (field?.color) {
+    span.style.setProperty("--token-color", field.color);
+  }
+  span.textContent = getTokenLabel(key);
+  return span;
+}
+
+function buildAiEditorFragment(text) {
+  const source = normalizeAiText(text || "");
+  const fragment = document.createDocumentFragment();
+  const tokenPattern = /\{\{([^{}]+)\}\}/g;
+  let cursor = 0;
+  let match = tokenPattern.exec(source);
+
+  while (match) {
+    if (match.index > cursor) {
+      appendValueMatches(fragment, source.slice(cursor, match.index));
+    }
+
+    const key = match[1].trim();
+    const field = fields.find(item => item.key === key);
+    if (field) {
+      fragment.appendChild(buildTokenChip(field.key, {
+        tokenValue: field.value,
+        tokenState: "saved",
+        tokenSource: "saved-token"
+      }));
+    } else {
+      fragment.appendChild(document.createTextNode(match[0]));
+    }
+
+    cursor = match.index + match[0].length;
+    match = tokenPattern.exec(source);
+  }
+
+  if (cursor < source.length) {
+    appendValueMatches(fragment, source.slice(cursor));
+  }
+
+  return fragment;
+}
+
+function appendValueMatches(fragment, text) {
+  const active = getTokenMappings();
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    let bestField = null;
+    let bestIndex = -1;
+
+    for (const field of active) {
+      if (!field.value) {
+        continue;
+      }
+      const index = text.indexOf(field.value, cursor);
+      if (index === -1) {
+        continue;
+      }
+      if (bestIndex === -1 || index < bestIndex || (index === bestIndex && field.value.length > (bestField?.value?.length || 0))) {
+        bestField = field;
+        bestIndex = index;
+      }
+    }
+
+    if (!bestField) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor)));
+      return;
+    }
+
+    if (bestIndex > cursor) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor, bestIndex)));
+    }
+
+    fragment.appendChild(buildTokenChip(bestField.key, {
+      tokenValue: bestField.value,
+      tokenState: isSpanSaved(bestIndex, bestIndex + bestField.value.length, getSharedTextBounds(text, savedMaskedPublicMarkdown || ""), text, savedMaskedPublicMarkdown || "")
+        ? "saved"
+        : "provisional",
+      tokenSource: bestField.source === "saved" ? "saved-value" : "value-match"
+    }));
+    cursor = bestIndex + bestField.value.length;
   }
 }
 
-function renderMaskedEditor() {
-  maskedEditor.value = publicDraftMarkdown;
+function serializeAiEditor(root = maskedPreview) {
+  if (aiEditor) {
+    return aiEditor.getSourceText();
+  }
+
+  const walk = node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || "";
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return "";
+    }
+
+    const element = node;
+
+    if (element.classList.contains("token-chip")) {
+      const key = element.dataset.tokenKey || "";
+      return getTokenLabel(key);
+    }
+
+    if (element.tagName === "BR") {
+      return "\n";
+    }
+
+    let output = "";
+    element.childNodes.forEach(child => {
+      output += walk(child);
+    });
+
+    if (element.tagName === "DIV" || element.tagName === "P") {
+      output += "\n";
+    }
+
+    return output;
+  };
+
+  return walk(root).replace(/\n$/, "");
 }
 
-function renderMaskedPreview() {
-  maskedMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "";
-  maskedPreview.innerHTML = maskedMarkdown
-    ? colorizeTokens(maskedMarkdown)
-    : '<div class="empty-hint">AI 读取的内容会在这里显示</div>';
+function renderAiEditor() {
+  mountAiEditor();
+  if (aiEditor) {
+    const nextText = publicDraftMarkdown || "";
+    const nextSignature = `${normalizeAiText(nextText)}\u0000${privateFingerprint()}`;
+    if (aiEditor.getSourceText() !== nextText || aiRenderSignature !== nextSignature) {
+      aiEditor.setSourceText(nextText);
+      aiRenderSignature = nextSignature;
+    }
+    return;
+  }
+
+  if (!maskedPreview) {
+    return;
+  }
+
+  maskedPreview.innerHTML = "";
+  if (publicDraftMarkdown) {
+    maskedPreview.appendChild(buildAiEditorFragment(publicDraftMarkdown));
+  }
+}
+
+function normalizeAndRenderAiEditor(forceRender = false) {
+  mountAiEditor();
+  if (aiEditor) {
+    return true;
+  }
+
+  if (!maskedPreview) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  const activeRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+  const hasCaret = Boolean(activeRange && maskedPreview.contains(activeRange.commonAncestorContainer));
+  const caretIndex = hasCaret ? getSerializedCaretIndex(maskedPreview, activeRange) : null;
+  const currentText = serializeAiEditor();
+  const normalized = normalizeAiSourceTextWithCaret(currentText, caretIndex);
+  publicDraftMarkdown = normalized.text;
+  if (!forceRender && normalized.text === currentText) {
+    return false;
+  }
+
+  renderAiEditor();
+
+  if (hasCaret && normalized.caretIndex != null) {
+    const resolved = resolveSerializedPosition(maskedPreview, normalized.caretIndex);
+    window.requestAnimationFrame(() => {
+      const currentSelection = window.getSelection();
+      if (!currentSelection) {
+        return;
+      }
+      const nextRange = document.createRange();
+      nextRange.setStart(resolved.node, resolved.offset);
+      nextRange.collapse(true);
+      currentSelection.removeAllRanges();
+      currentSelection.addRange(nextRange);
+    });
+  }
+
+  return true;
 }
 
 function syncMaskedPublicText() {
-  maskedMarkdown = getCurrentMaskedPublicText();
-  renderMaskedPreview();
+  publicDraftMarkdown = normalizeAiText(serializeAiEditor());
   updateOutput();
+  renderStatus();
+}
+
+function mountAiEditor() {
+  if (aiEditor || typeof window.createJianliEditor !== "function" || !maskedPreview) {
+    return;
+  }
+
+  aiEditor = window.createJianliEditor(maskedPreview, {
+    initialText: publicDraftMarkdown || savedMaskedPublicMarkdown || "",
+    getFields: () => fields,
+    placeholder: "AI 读取的内容会在这里显示",
+    onChange: text => {
+      publicDraftMarkdown = text;
+      aiRenderSignature = `${normalizeAiText(text)}\u0000${privateFingerprint()}`;
+      updateOutput();
+      renderStatus();
+    },
+    onFocusChange: focused => {
+      aiEditorFocused = focused;
+    }
+  });
+  aiRenderSignature = `${normalizeAiText(aiEditor.getSourceText() || publicDraftMarkdown || "")}\u0000${privateFingerprint()}`;
+}
+
+function scheduleAiNormalization() {
+  if (aiNormalizeTimer) {
+    clearTimeout(aiNormalizeTimer);
+  }
+
+  aiNormalizeTimer = window.setTimeout(() => {
+    aiNormalizeTimer = null;
+    normalizeAndRenderAiEditor(false);
+    updateOutput();
+    renderStatus();
+  }, 260);
 }
 
 function readPrivateValue(key, fallback = "") {
@@ -455,7 +963,8 @@ function getPublicBullets(text = "") {
 }
 
 function generateResumePreview() {
-  const bullets = getPublicBullets(getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "");
+  const previewText = privateUnlocked && privateValuesResolved ? unmaskText(publicDraftMarkdown) : maskText(publicDraftMarkdown);
+  const bullets = getPublicBullets(previewText || savedMaskedPublicMarkdown || "");
   const name = readPrivateValue("姓名", "候选人");
   const city = readPrivateValue("城市", "城市");
   const phone = readPrivateValue("手机", "手机");
@@ -508,17 +1017,9 @@ function regeneratePublicExample() {
   publicSampleIndex = (publicSampleIndex + 1) % demoSamples.length;
   applySample(demoSamples[publicSampleIndex]);
   renderFields();
-  renderMaskedEditor();
-  syncMaskedPublicText();
+  renderAiEditor();
+  updateOutput();
   renderStatus();
-}
-
-function setPublicTab(view) {
-  const isPublic = view === "public";
-  publicView.classList.toggle("is-active", isPublic);
-  aiView.classList.toggle("is-active", !isPublic);
-  showPublicButton.classList.toggle("is-active", isPublic);
-  showAIButton.classList.toggle("is-active", !isPublic);
 }
 
 async function apiRead(path) {
@@ -550,28 +1051,30 @@ async function loadSavedData() {
       fields = createEmptyPrivateFields(keys);
       privateUnlocked = false;
       privateValuesResolved = false;
+      savedPrivateValues = {};
       savedPrivateFingerprint = "";
     } else if (appState.privateClearedAt) {
       fields = createEmptyPrivateFields(savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys);
       privateUnlocked = false;
       privateValuesResolved = false;
+      savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
       savedPrivateFingerprint = privateFingerprint();
     } else {
       if (!savedMaskedPublicMarkdown) {
         applySample(demoSamples[0], { preservePrivateLock: true });
+        savedMaskedPublicMarkdown = publicDraftMarkdown;
       }
+      savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
       savedPrivateFingerprint = privateFingerprint();
       privateUnlocked = true;
       privateValuesResolved = true;
     }
 
-    publicDraftMarkdown = privateUnlocked && privateValuesResolved
-      ? unmaskText(savedMaskedPublicMarkdown || "")
-      : hasEncryptedPrivate
-        ? savedMaskedPublicMarkdown || ""
-        : savedMaskedPublicMarkdown || publicDraftMarkdown || "";
+    publicDraftMarkdown = savedMaskedPublicMarkdown || publicDraftMarkdown || "";
   } catch {
-    applySample(demoSamples[0], { preservePrivateLock: true });
+  applySample(demoSamples[0], { preservePrivateLock: true });
+    savedMaskedPublicMarkdown = publicDraftMarkdown;
+    savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
     savedPrivateFingerprint = privateFingerprint();
     privateUnlocked = true;
     privateValuesResolved = true;
@@ -579,8 +1082,7 @@ async function loadSavedData() {
   }
 
   renderFields();
-  renderMaskedEditor();
-  renderMaskedPreview();
+  renderAiEditor();
   generateResumePreview();
   renderStatus();
 }
@@ -668,7 +1170,7 @@ async function savePrivateData() {
   privateValuesResolved = true;
   savedPrivateFingerprint = privateFingerprint();
   savedPrivateKeys = fields.map(field => field.key);
-  savedMaskedPublicMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "";
+  savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
   await saveMaskedPublicData();
   return true;
 }
@@ -685,7 +1187,7 @@ async function clearPrivateData() {
   privateUnlocked = true;
   privateValuesResolved = false;
   renderFields();
-  renderMaskedPreview();
+  renderAiEditor();
   generateResumePreview();
   renderStatus();
   setStatus("隐私值已清空，可重新填写", "ok");
@@ -694,10 +1196,8 @@ async function clearPrivateData() {
 async function unlockPrivateData() {
   if (privateUnlocked) {
     privateUnlocked = false;
-    publicDraftMarkdown = savedMaskedPublicMarkdown || maskText(publicDraftMarkdown);
     renderFields();
-    renderMaskedEditor();
-    renderMaskedPreview();
+    renderAiEditor();
     generateResumePreview();
     renderStatus();
     setStatus("隐私信息已锁定", "ok");
@@ -720,16 +1220,14 @@ async function unlockPrivateData() {
       fields = await decryptPrivateFields(password, await response.json());
       savedPrivateFingerprint = privateFingerprint();
       savedPrivateKeys = fields.map(field => field.key);
+      savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
     }
     privateUnlocked = true;
     privateValuesResolved = true;
-    publicDraftMarkdown = unmaskText(savedMaskedPublicMarkdown || publicDraftMarkdown || "");
-    savedMaskedPublicMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown;
-    await saveMaskedPublicData();
-    renderMaskedEditor();
     renderFields();
-    renderMaskedPreview();
+    renderAiEditor();
     generateResumePreview();
+    renderStatus();
     setStatus("隐私信息已解锁", "ok");
   } catch {
     setStatus("密钥不正确，无法解锁隐私信息", "warning");
@@ -754,7 +1252,6 @@ async function saveAllData() {
     try {
       await saveMaskedPublicData();
       publicSaved = true;
-      savedMaskedPublicMarkdown = getCurrentMaskedPublicText();
     } catch {
       publicFailed = true;
     }
@@ -822,7 +1319,7 @@ async function saveAllData() {
 }
 
 async function saveMaskedPublicData() {
-  const payload = getCurrentMaskedPublicText();
+  const payload = maskText(publicDraftMarkdown);
   if (!payload) {
     return;
   }
@@ -838,6 +1335,7 @@ async function saveMaskedPublicData() {
   }
 
   appState = await response.json();
+  savedMaskedPublicMarkdown = payload;
 }
 
 addFieldButton.addEventListener("click", () => {
@@ -851,7 +1349,8 @@ addFieldButton.addEventListener("click", () => {
     color: colors[fields.length % colors.length]
   });
   renderFields();
-  syncMaskedPublicText();
+  renderAiEditor();
+  updateOutput();
   renderStatus();
 });
 regeneratePublicButton.addEventListener("click", regeneratePublicExample);
@@ -860,8 +1359,6 @@ printButton.addEventListener("click", () => {
   generateResumePreview();
   window.print();
 });
-showPublicButton.addEventListener("click", () => setPublicTab("public"));
-showAIButton.addEventListener("click", () => setPublicTab("ai"));
 unlockPrivateButton.addEventListener("click", unlockPrivateData);
 saveAllButton.addEventListener("click", saveAllData);
 clearPrivateButton.addEventListener("click", clearPrivateData);
@@ -872,17 +1369,31 @@ clearPrivateButton.addEventListener("keydown", event => {
   }
 });
 privateKeyInput.addEventListener("input", () => renderStatus());
-maskedEditor.addEventListener("input", () => {
-  publicDraftMarkdown = maskedEditor.value;
-  syncMaskedPublicText();
+maskedPreview.addEventListener("input", event => {
+  publicDraftMarkdown = normalizeAiText(serializeAiEditor());
+  updateOutput();
+  renderStatus();
+  if (!event.isComposing) {
+    scheduleAiNormalization();
+  }
+});
+maskedPreview.addEventListener("focusin", () => {
+  aiEditorFocused = true;
+});
+maskedPreview.addEventListener("focusout", () => {
+  aiEditorFocused = false;
+  if (aiNormalizeTimer) {
+    clearTimeout(aiNormalizeTimer);
+    aiNormalizeTimer = null;
+  }
+  normalizeAndRenderAiEditor(true);
+  updateOutput();
   renderStatus();
 });
 
 publicSampleIndex = 0;
-setPublicTab("public");
 renderFields();
-renderMaskedEditor();
-renderMaskedPreview();
+renderAiEditor();
 generateResumePreview();
 renderStatus();
 loadSavedData();

@@ -1,3 +1,4 @@
 data/*
 !data/.gitkeep
 *.pdf
+node_modules/

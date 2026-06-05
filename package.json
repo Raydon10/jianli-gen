@@ -1,0 +1,19 @@
+{
+  "name": "jianli-shield-gen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:editor": "node scripts/build-tiptap.mjs",
+    "build": "npm run build:editor"
+  },
+  "devDependencies": {
+    "@tiptap/core": "^2.14.0",
+    "@tiptap/extension-placeholder": "^2.14.0",
+    "@tiptap/pm": "^2.14.0",
+    "@tiptap/starter-kit": "^2.14.0",
+    "esbuild": "^0.25.9"
+  },
+  "dependencies": {
+    "@tiptap/suggestion": "^2.27.2"
+  }
+}
