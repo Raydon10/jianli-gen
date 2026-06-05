@@ -8,21 +8,20 @@
   </head>
   <body>
     <main class="app-shell">
+      <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
       <section class="panel left-rail">
         <div class="panel-header">
           <h2>AI 简历生成-保护隐私</h2>
-          <div class="status-inline" id="syncStatusBar"></div>
           <div class="header-actions">
-            <input class="key-input" id="privateKey" type="password" autocomplete="off" placeholder="隐私密钥">
-            <button class="text-button" id="unlockPrivate">解锁隐私</button>
             <button class="text-button" id="saveAll">保存</button>
-            <button class="text-button" id="clearPrivate">清除隐私</button>
           </div>
         </div>
         <div class="left-columns">
           <section class="panel public-panel">
             <div class="panel-header">
-              <h2>公开信息</h2>
+              <div class="title-with-status">
+                <h2>公开信息</h2>
+              </div>
               <div class="header-actions">
                 <button class="text-button" id="regeneratePublic">重新生成示例</button>
               </div>
@@ -32,9 +31,17 @@
 
           <section class="panel privacy-panel">
             <div class="panel-header">
-              <h2>隐私信息</h2>
-              <div class="header-actions">
+              <div class="title-with-status">
+                <h2>隐私信息</h2>
                 <div class="status-inline" id="privateStatusBar"></div>
+              </div>
+              <div class="header-actions">
+                <input class="key-input" id="privateKey" type="password" autocomplete="off" placeholder="隐私密钥">
+                <button class="text-button" id="unlockPrivate">解锁</button>
+                <button class="info-button" id="privateInfo" type="button" aria-label="说明">
+                  ?
+                  <span class="info-tooltip">忘记密钥？<span class="inline-action" id="clearPrivate" role="button" tabindex="0">点击清空</span> 隐私信息重新填写。清空后只会清空值，不清空 key，并会切换到解锁状态。</span>
+                </button>
                 <button class="icon-button" id="addField" title="添加字段">+</button>
               </div>
             </div>
@@ -47,14 +54,14 @@
         <div class="panel-header">
           <div class="header-actions">
             <div class="segmented-control" aria-label="切换视图">
-              <button class="segment is-active" id="showSource">AI读取信息</button>
+              <button class="segment is-active" id="showSource">AI 读取的信息</button>
               <button class="segment" id="showPreview">简历预览</button>
             </div>
+            <div class="status-inline" id="aiStatusBar"></div>
             <button class="text-button" id="printResume">导出 PDF</button>
           </div>
         </div>
         <div class="workspace-view is-active" id="sourceView">
-          <div class="section-title">发送给 AI 的脱敏内容</div>
           <div class="masked-preview" id="maskedPreview"></div>
         </div>
         <div class="workspace-view" id="previewView">

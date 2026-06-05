@@ -133,12 +133,13 @@ let fields = demoFields.map((field, index) => ({
   color: colors[index % colors.length]
 }));
 
-let rawPublicMarkdown = "";
 let maskedMarkdown = "";
-let savedPublicMarkdown = "";
+let savedMaskedPublicMarkdown = "";
+let legacyPublicMarkdown = "";
 let savedPrivateFingerprint = "";
 let savedPrivateKeys = [];
 let privateUnlocked = false;
+let privateValuesResolved = false;
 let hasEncryptedPrivate = false;
 let appState = {};
 let publicSampleIndex = 0;
@@ -158,8 +159,10 @@ const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
 const saveAllButton = document.querySelector("#saveAll");
 const clearPrivateButton = document.querySelector("#clearPrivate");
-const syncStatusBar = document.querySelector("#syncStatusBar");
+const aiStatusBar = document.querySelector("#aiStatusBar");
 const privateStatusBar = document.querySelector("#privateStatusBar");
+const toast = document.querySelector("#toast");
+let toastTimer = null;
 
 function escapeHtml(value) {
   return value
@@ -199,10 +202,6 @@ function privateFingerprint() {
   return JSON.stringify(fields.map(({ key, value, color }) => ({ key, value, color })));
 }
 
-function privateKeyFingerprint() {
-  return JSON.stringify(fields.map(({ key }) => ({ key })));
-}
-
 function createEmptyPrivateFields(keys = defaultPrivateKeys) {
   return keys.map((key, index) => ({
     key,
@@ -222,63 +221,65 @@ function cloneFields(sourceFields) {
 function applySample(sample, options = {}) {
   const { preservePrivateLock = false } = options;
   fields = cloneFields(sample.fields);
-  rawPublicMarkdown = sample.publicMarkdown;
-  maskedMarkdown = maskText(rawPublicMarkdown);
+  maskedMarkdown = maskText(sample.publicMarkdown);
+  savedMaskedPublicMarkdown = maskedMarkdown;
+  legacyPublicMarkdown = "";
   if (!preservePrivateLock) {
     privateUnlocked = true;
     hasEncryptedPrivate = false;
     savedPrivateKeys = sample.fields.map(field => field.key);
+    privateValuesResolved = true;
   }
 }
 
 function publicDirty() {
-  return rawPublicMarkdown !== savedPublicMarkdown;
+  return getCurrentMaskedPublicText() !== savedMaskedPublicMarkdown;
 }
 
 function privateDirty() {
+  if (hasEncryptedPrivate && !privateUnlocked && savedPrivateFingerprint === "") {
+    return false;
+  }
+
   if (!hasEncryptedPrivate) {
     return privateFingerprint() !== savedPrivateFingerprint;
   }
 
-  if (privateUnlocked) {
-    return privateFingerprint() !== savedPrivateFingerprint;
-  }
-
-  return privateKeyFingerprint() !== JSON.stringify(savedPrivateKeys.map(key => ({ key })));
+  return privateFingerprint() !== savedPrivateFingerprint;
 }
 
 function setStatus(message, type = "info") {
-  renderStatus(message, type);
+  if (!toast) return;
+  toast.className = `toast is-visible ${type}`;
+  toast.textContent = message;
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+  toastTimer = window.setTimeout(() => {
+    toast.className = "toast";
+    toast.textContent = "";
+  }, 2400);
 }
 
-function renderStatus(message = "", messageType = "info") {
-  const publicClass = publicDirty() ? "warning" : "ok";
+function renderStatus() {
   const privateClass = privateDirty() ? "warning" : "ok";
-  const lockText = privateUnlocked
-    ? "隐私信息：已解锁"
-    : hasEncryptedPrivate
-      ? "隐私信息：已加密保存，显示占位行"
-      : "隐私信息：未保存";
 
-  const hasKey = Boolean(privateKeyInput.value);
-  unlockPrivateButton.disabled = !hasKey;
-  saveAllButton.disabled = !hasKey;
-  addFieldButton.disabled = hasEncryptedPrivate && !privateUnlocked;
-  clearPrivateButton.disabled = false;
+  unlockPrivateButton.textContent = privateUnlocked ? "锁定" : "解锁";
+  unlockPrivateButton.disabled = false;
+  saveAllButton.disabled = !(publicDirty() || privateDirty());
 
-  syncStatusBar.innerHTML = `
-    <span class="status-pill ${publicClass} ${privateClass}">保存状态：${publicDirty() || privateDirty() ? "未保存" : "已保存"}</span>
+  aiStatusBar.innerHTML = `
+    <span class="status-pill ${publicDirty() ? "warning" : "ok"}">${publicDirty() ? "未保存" : "已保存"}</span>
   `;
 
   privateStatusBar.innerHTML = `
-    <span class="status-pill ${privateClass}">${privateDirty() ? "隐私信息：未保存" : lockText}</span>
-    ${message ? `<span class="status-pill ${messageType}">${escapeHtml(message)}</span>` : ""}
+    <span class="status-pill ${privateClass}">${privateDirty() ? "未保存" : "已保存"}</span>
   `;
 }
 
 function renderFields() {
   fieldList.innerHTML = "";
-  const locked = hasEncryptedPrivate && !privateUnlocked;
+  const locked = !privateUnlocked;
 
   fields.forEach((field, index) => {
     const card = document.createElement("div");
@@ -290,8 +291,8 @@ function renderFields() {
     card.innerHTML = `
       <div class="drag-handle" title="拖动排序">≡</div>
       <input class="field-key" value="${escapeHtml(field.key)}" aria-label="字段名" ${locked ? "disabled" : ""}>
-      <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已加密保存" : "请输入值"}" ${locked ? "disabled" : ""}>
-      <button class="field-action" data-action="delete" title="删除" ${locked ? "disabled" : ""}>×</button>
+      <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "请输入值"}" ${locked ? "disabled" : ""}>
+      <button class="field-action" data-action="delete" title="删除">×</button>
     `;
 
     card.querySelector(".field-key").addEventListener("input", event => {
@@ -299,9 +300,10 @@ function renderFields() {
       const previousKey = fields[index].key;
       const nextKey = event.target.value.trim();
       fields[index].key = nextKey;
-      if (previousKey && nextKey) {
-        rawPublicMarkdown = rawPublicMarkdown.replace(new RegExp(escapeRegExp(`{{${previousKey}}}`), "g"), `{{${nextKey}}}`);
+      if (previousKey && nextKey && savedMaskedPublicMarkdown) {
+        savedMaskedPublicMarkdown = savedMaskedPublicMarkdown.replace(new RegExp(escapeRegExp(`{{${previousKey}}}`), "g"), `{{${nextKey}}}`);
       }
+      renderMaskedEditor();
       syncMaskedPublicText();
       renderStatus();
     });
@@ -314,7 +316,10 @@ function renderFields() {
     });
 
     card.querySelector(".field-action").addEventListener("click", () => {
-      if (locked) return;
+      if (locked) {
+        setStatus("请先用密钥解锁隐私信息", "warning");
+        return;
+      }
       fields.splice(index, 1);
       renderFields();
       syncMaskedPublicText();
@@ -368,8 +373,24 @@ function maskText(text, htmlMode = false) {
   return output;
 }
 
-function getMaskedPublicText() {
-  return maskText(rawPublicMarkdown);
+function getCurrentPublicDraftText() {
+  return maskedEditor.value;
+}
+
+function getCurrentMaskedPublicText() {
+  const draft = getCurrentPublicDraftText();
+  if (privateUnlocked && privateValuesResolved) {
+    return draft ? maskText(draft) : "";
+  }
+
+  return draft;
+}
+
+function getVisibleMaskedPublicText() {
+  if (privateUnlocked && privateValuesResolved) {
+    return unmaskText(savedMaskedPublicMarkdown || legacyPublicMarkdown || "");
+  }
+  return getCurrentPublicDraftText() || savedMaskedPublicMarkdown || "";
 }
 
 function unmaskText(text) {
@@ -385,6 +406,10 @@ function unmaskText(text) {
 }
 
 function colorizeTokens(text) {
+  if (!text) {
+    return "";
+  }
+
   let output = escapeHtml(text);
 
   fields
@@ -405,15 +430,18 @@ function updateOutput() {
 }
 
 function renderMaskedEditor() {
-  maskedEditor.value = rawPublicMarkdown;
+  maskedEditor.value = getVisibleMaskedPublicText();
 }
 
 function renderMaskedPreview() {
-  maskedMarkdown = getMaskedPublicText();
-  maskedPreview.innerHTML = colorizeTokens(maskedMarkdown);
+  maskedMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "";
+  maskedPreview.innerHTML = maskedMarkdown
+    ? colorizeTokens(maskedMarkdown)
+    : '<div class="empty-hint">AI 读取的信息会在这里显示</div>';
 }
 
 function syncMaskedPublicText() {
+  maskedMarkdown = getCurrentMaskedPublicText();
   renderMaskedPreview();
   updateOutput();
 }
@@ -422,8 +450,8 @@ function readPrivateValue(key, fallback = "") {
   return fields.find(field => field.key === key)?.value || fallback;
 }
 
-function getPublicBullets() {
-  return unmaskText(getMaskedPublicText())
+function getPublicBullets(text = "") {
+  return text
     .split("\n")
     .map(line => line.trim())
     .filter(line => /^[-*]\s+/.test(line))
@@ -432,7 +460,7 @@ function getPublicBullets() {
 }
 
 function generateResumePreview() {
-  const bullets = getPublicBullets();
+  const bullets = getPublicBullets(getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "");
   const name = readPrivateValue("姓名", "候选人");
   const city = readPrivateValue("城市", "城市");
   const phone = readPrivateValue("手机", "手机");
@@ -479,7 +507,7 @@ function generateResumePreview() {
 
 function regeneratePublicExample() {
   if (hasEncryptedPrivate && !privateUnlocked) {
-    setStatus("请先解锁隐私信息，再生成联动示例", "warning");
+    setStatus("请先用密钥解锁隐私信息", "warning");
     return;
   }
   publicSampleIndex = (publicSampleIndex + 1) % demoSamples.length;
@@ -515,11 +543,17 @@ async function loadSavedData() {
 
     const publicResponse = await apiRead("/api/public");
     if (publicResponse) {
-      rawPublicMarkdown = await publicResponse.text();
-      savedPublicMarkdown = rawPublicMarkdown;
+      legacyPublicMarkdown = await publicResponse.text();
     } else {
       applySample(demoSamples[0], { preservePrivateLock: true });
-      savedPublicMarkdown = "";
+      legacyPublicMarkdown = "";
+    }
+
+    const maskedResponse = await apiRead("/api/public-masked");
+    if (maskedResponse) {
+      savedMaskedPublicMarkdown = await maskedResponse.text();
+    } else if (legacyPublicMarkdown && !hasEncryptedPrivate) {
+      savedMaskedPublicMarkdown = maskText(legacyPublicMarkdown);
     }
 
     if (hasEncryptedPrivate) {
@@ -528,20 +562,27 @@ async function loadSavedData() {
         : Array.from({ length: appState.privateFieldCount || 0 }, (_, index) => `隐私字段${index + 1}`);
       fields = createEmptyPrivateFields(keys);
       privateUnlocked = false;
+      privateValuesResolved = false;
       savedPrivateFingerprint = "";
     } else if (appState.privateClearedAt) {
       fields = createEmptyPrivateFields(savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys);
       privateUnlocked = false;
+      privateValuesResolved = false;
       savedPrivateFingerprint = privateFingerprint();
     } else {
       savedPrivateFingerprint = privateFingerprint();
       privateUnlocked = true;
+      privateValuesResolved = true;
+      if (!savedMaskedPublicMarkdown) {
+        savedMaskedPublicMarkdown = maskText(legacyPublicMarkdown || "");
+      }
     }
   } catch {
     applySample(demoSamples[0], { preservePrivateLock: true });
-    savedPublicMarkdown = "";
+    legacyPublicMarkdown = "";
     savedPrivateFingerprint = privateFingerprint();
     privateUnlocked = true;
+    privateValuesResolved = true;
     setStatus("保存服务未启动，当前仅可预览", "warning");
   }
 
@@ -550,21 +591,6 @@ async function loadSavedData() {
   renderMaskedPreview();
   generateResumePreview();
   renderStatus();
-}
-
-async function savePublicData() {
-  const response = await fetch("/api/public", {
-    method: "PUT",
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-    body: rawPublicMarkdown
-  });
-
-  if (!response.ok) {
-    throw new Error("公开信息保存失败");
-  }
-
-  appState = await response.json();
-  savedPublicMarkdown = rawPublicMarkdown;
 }
 
 function bytesToBase64(bytes) {
@@ -623,7 +649,7 @@ async function decryptPrivateFields(password, payload) {
 async function savePrivateData() {
   const password = privateKeyInput.value;
   if (!password) {
-    setStatus("请输入隐私密钥后再保存", "warning");
+    setStatus("请先输入密钥后保存隐私信息", "warning");
     return false;
   }
 
@@ -647,92 +673,181 @@ async function savePrivateData() {
   appState = await response.json();
   hasEncryptedPrivate = true;
   privateUnlocked = true;
+  privateValuesResolved = true;
   savedPrivateFingerprint = privateFingerprint();
   savedPrivateKeys = fields.map(field => field.key);
+  savedMaskedPublicMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || "";
+  await saveMaskedPublicData();
   return true;
 }
 
 async function clearPrivateData() {
-  if (!window.confirm("将清除本地隐私信息、加密文件和状态，继续吗？")) {
+  if (!window.confirm("将清空当前隐私值并保留字段名，继续吗？")) {
     return;
   }
 
-  try {
-    const response = await fetch("/api/private", { method: "DELETE" });
-    if (!response.ok) {
-      throw new Error("隐私信息清除失败");
-    }
-
-    appState = await response.json();
-    hasEncryptedPrivate = false;
-    privateUnlocked = false;
-  savedPrivateKeys = appState.privateFieldKeys || defaultPrivateKeys;
-  fields = createEmptyPrivateFields(savedPrivateKeys);
-  savedPrivateFingerprint = privateFingerprint();
-  privateKeyInput.value = "";
+  fields = fields.map(field => ({
+    ...field,
+    value: ""
+  }));
+  privateUnlocked = true;
+  privateValuesResolved = false;
   renderFields();
-  renderMaskedEditor();
   renderMaskedPreview();
   generateResumePreview();
-  renderStatus("隐私信息已清除", "ok");
-  } catch {
-    setStatus("清除隐私信息失败，请确认本地服务已启动", "warning");
-  }
+  renderStatus();
+  setStatus("隐私值已清空，可重新填写", "ok");
 }
 
 async function unlockPrivateData() {
-  const password = privateKeyInput.value;
-  if (!password) {
-    setStatus("请输入隐私密钥", "warning");
+  if (privateUnlocked) {
+    privateUnlocked = false;
+    renderFields();
+    renderMaskedPreview();
+    generateResumePreview();
+    renderStatus();
+    setStatus("隐私信息已锁定", "ok");
     return;
   }
 
-  const response = await apiRead("/api/private");
-  if (!response) {
-    setStatus("没有已保存的隐私信息", "warning");
+  const password = privateKeyInput.value;
+  if (!password) {
+    setStatus("请先输入密钥", "warning");
     return;
   }
 
   try {
-    fields = await decryptPrivateFields(password, await response.json());
+    if (hasEncryptedPrivate && savedPrivateFingerprint === "") {
+      const response = await apiRead("/api/private");
+      if (!response) {
+        setStatus("没有已保存的隐私信息", "warning");
+        return;
+      }
+      fields = await decryptPrivateFields(password, await response.json());
+      savedPrivateFingerprint = privateFingerprint();
+      savedPrivateKeys = fields.map(field => field.key);
+    }
     privateUnlocked = true;
-    hasEncryptedPrivate = true;
-    savedPrivateFingerprint = privateFingerprint();
-    savedPrivateKeys = fields.map(field => field.key);
+    privateValuesResolved = true;
+    savedMaskedPublicMarkdown = getCurrentMaskedPublicText() || savedMaskedPublicMarkdown || maskText(legacyPublicMarkdown || "");
+    await saveMaskedPublicData();
+    renderMaskedEditor();
     renderFields();
     renderMaskedPreview();
     generateResumePreview();
     setStatus("隐私信息已解锁", "ok");
   } catch {
-    setStatus("密钥不正确，无法解锁", "warning");
+    setStatus("密钥不正确，无法解锁隐私信息", "warning");
   }
 }
 
 async function saveAllData() {
-  try {
+  const publicChanged = publicDirty();
+  const privateChanged = privateDirty();
+  if (!publicChanged && !privateChanged) {
+    setStatus("没有需要保存的内容", "info");
+    return;
+  }
+
+  let publicSaved = false;
+  let privateSaved = false;
+  let publicFailed = false;
+  let privateFailed = false;
+  let privateNeedsKey = false;
+
+  if (publicChanged) {
+    try {
+      await saveMaskedPublicData();
+      publicSaved = true;
+      savedMaskedPublicMarkdown = getCurrentMaskedPublicText();
+    } catch {
+      publicFailed = true;
+    }
+  }
+
+  if (privateChanged) {
     if (!privateKeyInput.value) {
-      setStatus("请输入隐私密钥后再保存", "warning");
-      return;
-    }
-    if (publicDirty()) {
-      await savePublicData();
-    }
-    if (privateDirty() || !hasEncryptedPrivate) {
-      const saved = await savePrivateData();
-      if (!saved) {
-        renderStatus();
-        return;
+      privateNeedsKey = true;
+    } else {
+      try {
+        const saved = await savePrivateData();
+        privateSaved = Boolean(saved);
+      } catch {
+        privateFailed = true;
       }
     }
-    setStatus("已保存", "ok");
-  } catch {
-    setStatus("保存失败，请确认本地服务已启动", "warning");
   }
+
+  if (publicSaved && privateSaved) {
+    setStatus("AI读取的信息和隐私信息已保存", "ok");
+    return;
+  }
+
+  if (publicSaved && privateNeedsKey) {
+    setStatus("AI读取的信息已保存，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
+    return;
+  }
+
+  if (publicSaved && privateFailed) {
+    setStatus("AI读取的信息已保存，隐私信息保存失败", "warning");
+    return;
+  }
+
+  if (publicSaved && !privateChanged) {
+    setStatus("AI读取的信息已保存", "ok");
+    return;
+  }
+
+  if (!publicChanged && privateSaved) {
+    setStatus("隐私信息已保存", "ok");
+    return;
+  }
+
+  if (!publicChanged && privateNeedsKey) {
+    setStatus("请先输入密钥后保存隐私信息", "warning");
+    return;
+  }
+
+  if (!publicChanged && privateFailed) {
+    setStatus("隐私信息保存失败，请确认本地服务已启动", "warning");
+    return;
+  }
+
+  if (publicFailed && privateSaved) {
+    setStatus("AI读取的信息保存失败，隐私信息已保存", "warning");
+    return;
+  }
+
+  if (publicFailed && privateNeedsKey) {
+    setStatus("AI读取的信息保存失败，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
+    return;
+  }
+
+  setStatus("保存失败，请确认本地服务已启动", "warning");
+}
+
+async function saveMaskedPublicData() {
+  const payload = getCurrentMaskedPublicText();
+  if (!payload) {
+    return;
+  }
+
+  const response = await fetch("/api/public-masked", {
+    method: "PUT",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    body: payload
+  });
+
+  if (!response.ok) {
+    throw new Error("AI 读取的信息保存失败");
+  }
+
+  appState = await response.json();
 }
 
 addFieldButton.addEventListener("click", () => {
   if (hasEncryptedPrivate && !privateUnlocked) {
-    setStatus("请先解锁隐私信息后再编辑字段", "warning");
+    setStatus("请先用密钥解锁隐私信息", "warning");
     return;
   }
   fields.push({
@@ -755,15 +870,19 @@ showPreviewButton.addEventListener("click", () => setWorkspaceView("preview"));
 unlockPrivateButton.addEventListener("click", unlockPrivateData);
 saveAllButton.addEventListener("click", saveAllData);
 clearPrivateButton.addEventListener("click", clearPrivateData);
+clearPrivateButton.addEventListener("keydown", event => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    clearPrivateData();
+  }
+});
 privateKeyInput.addEventListener("input", () => renderStatus());
 maskedEditor.addEventListener("input", () => {
-  rawPublicMarkdown = maskedEditor.value;
   syncMaskedPublicText();
   renderStatus();
 });
 
 publicSampleIndex = 0;
-applySample(demoSamples[0]);
 renderFields();
 renderMaskedEditor();
 renderMaskedPreview();

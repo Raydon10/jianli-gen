@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const dataDir = join(root, "data");
 const publicPath = join(dataDir, "public.md");
+const publicMaskedPath = join(dataDir, "public.masked.md");
 const privatePath = join(dataDir, "private.enc.json");
 const statePath = join(dataDir, "state.json");
 const port = Number(process.env.PORT || 8790);
@@ -97,6 +98,27 @@ async function handleApi(request, response) {
     const state = await updateState({
       publicSavedAt: new Date().toISOString(),
       publicHash: hash(body)
+    });
+    send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
+    return true;
+  }
+
+  if (request.url === "/api/public-masked" && request.method === "GET") {
+    if (!(await exists(publicMaskedPath))) {
+      send(response, 404, "Not found");
+      return true;
+    }
+    send(response, 200, await readFile(publicMaskedPath, "utf8"), "text/plain; charset=utf-8");
+    return true;
+  }
+
+  if (request.url === "/api/public-masked" && request.method === "PUT") {
+    const body = await readBody(request);
+    await ensureDataDir();
+    await writeFile(publicMaskedPath, body);
+    const state = await updateState({
+      publicMaskedSavedAt: new Date().toISOString(),
+      publicMaskedHash: hash(body)
     });
     send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
     return true;
