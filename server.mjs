@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ const privatePath = join(dataDir, "private.enc.json");
 const statePath = join(dataDir, "state.json");
 const port = Number(process.env.PORT || 8790);
 const host = "127.0.0.1";
+const defaultPrivateKeys = ["姓名", "年龄", "手机", "邮箱", "城市", "公司"];
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -113,16 +114,37 @@ async function handleApi(request, response) {
   if (request.url === "/api/private" && request.method === "PUT") {
     const body = await readBody(request);
     const payload = JSON.parse(body);
-    if (!payload.ciphertext || !payload.salt || !payload.iv) {
+    const encrypted = payload.encrypted ?? payload;
+    const metadata = payload.metadata ?? {};
+    if (!encrypted.ciphertext || !encrypted.salt || !encrypted.iv) {
       send(response, 400, "Invalid encrypted payload");
       return true;
     }
     await ensureDataDir();
-    await writeFile(privatePath, `${JSON.stringify(payload, null, 2)}\n`);
+    await writeFile(privatePath, `${JSON.stringify(encrypted, null, 2)}\n`);
     const state = await updateState({
       privateSavedAt: new Date().toISOString(),
       privateEncrypted: true,
-      privateCipherHash: hash(body)
+      privateCipherHash: hash(JSON.stringify(encrypted)),
+      privateFieldKeys: Array.isArray(metadata.fieldKeys) ? metadata.fieldKeys : [],
+      privateFieldCount: Number.isInteger(metadata.fieldCount) ? metadata.fieldCount : 0
+    });
+    send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
+    return true;
+  }
+
+  if (request.url === "/api/private" && request.method === "DELETE") {
+    await ensureDataDir();
+    try {
+      await unlink(privatePath);
+    } catch {}
+    const state = await updateState({
+      privateSavedAt: null,
+      privateEncrypted: false,
+      privateCipherHash: null,
+      privateFieldKeys: defaultPrivateKeys,
+      privateFieldCount: defaultPrivateKeys.length,
+      privateClearedAt: new Date().toISOString()
     });
     send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
     return true;

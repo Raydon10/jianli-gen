@@ -51,34 +51,116 @@ const demoMarkdown = `# 张明远
 - REST API 设计、微服务治理、性能优化
 - Git、Docker、Linux 基础运维`;
 
+const demoSamples = [
+  {
+    publicMarkdown: demoMarkdown,
+    fields: demoFields
+  },
+  {
+    publicMarkdown: `# 李薇
+
+杭州 | 18600001111 | liwei@example.com
+
+## 求职目标
+
+前端工程师，关注设计实现一致性、性能和可维护性。
+
+## 个人总结
+
+6 年前端开发经验，熟悉组件化架构、设计系统和复杂表单交互。
+
+## 工作经历
+
+### 星图科技｜前端工程师｜2020.03 - 至今
+
+- 搭建统一组件库，覆盖业务后台核心交互。
+- 优化首屏加载和表单响应速度。
+- 推动设计稿交付标准化。
+
+## 技能
+
+- TypeScript / React / CSS / Node.js
+- 组件设计、性能优化、工程化`,
+    fields: [
+      { key: "姓名", value: "李薇" },
+      { key: "年龄", value: "31" },
+      { key: "手机", value: "18600001111" },
+      { key: "邮箱", value: "liwei@example.com" },
+      { key: "城市", value: "杭州" },
+      { key: "公司", value: "星图科技" }
+    ]
+  },
+  {
+    publicMarkdown: `# 王浩
+
+深圳 | 13900002222 | wanghao@example.com
+
+## 求职目标
+
+全栈工程师，偏向业务交付与系统整合。
+
+## 个人总结
+
+8 年开发经验，熟悉前后端联调、接口设计和多角色后台系统。
+
+## 工作经历
+
+### 云脉信息｜全栈工程师｜2018.09 - 至今
+
+- 负责客户运营平台和审批流系统。
+- 协调前后端接口协议与上线节奏。
+- 支持核心页面性能优化与问题排查。
+
+## 技能
+
+- JavaScript / TypeScript / Vue / Node.js / PostgreSQL
+- 接口设计、业务建模、系统联调`,
+    fields: [
+      { key: "姓名", value: "王浩" },
+      { key: "年龄", value: "34" },
+      { key: "手机", value: "13900002222" },
+      { key: "邮箱", value: "wanghao@example.com" },
+      { key: "城市", value: "深圳" },
+      { key: "公司", value: "云脉信息" }
+    ]
+  }
+];
+
+const defaultPrivateKeys = demoSamples[0].fields.map(field => field.key);
+
 let fields = demoFields.map((field, index) => ({
   ...field,
   color: colors[index % colors.length]
 }));
 
+let rawPublicMarkdown = "";
 let maskedMarkdown = "";
 let savedPublicMarkdown = "";
 let savedPrivateFingerprint = "";
+let savedPrivateKeys = [];
 let privateUnlocked = false;
 let hasEncryptedPrivate = false;
 let appState = {};
+let publicSampleIndex = 0;
 
 const fieldList = document.querySelector("#fieldList");
 const maskedEditor = document.querySelector("#maskedEditor");
+const maskedPreview = document.querySelector("#maskedPreview");
 const resumePreview = document.querySelector("#resumePreview");
 const addFieldButton = document.querySelector("#addField");
-const resetDemoButton = document.querySelector("#resetDemo");
 const printButton = document.querySelector("#printResume");
 const generateButton = document.querySelector("#generateResume");
+const regeneratePublicButton = document.querySelector("#regeneratePublic");
 const sourceView = document.querySelector("#sourceView");
 const previewView = document.querySelector("#previewView");
 const showSourceButton = document.querySelector("#showSource");
 const showPreviewButton = document.querySelector("#showPreview");
-const workspaceTitle = document.querySelector("#workspaceTitle");
 const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
 const saveAllButton = document.querySelector("#saveAll");
-const statusBar = document.querySelector("#statusBar");
+const clearPrivateButton = document.querySelector("#clearPrivate");
+const publicStatusBar = document.querySelector("#publicStatusBar");
+const privateStatusBar = document.querySelector("#privateStatusBar");
 
 function escapeHtml(value) {
   return value
@@ -118,12 +200,52 @@ function privateFingerprint() {
   return JSON.stringify(fields.map(({ key, value, color }) => ({ key, value, color })));
 }
 
+function privateKeyFingerprint() {
+  return JSON.stringify(fields.map(({ key }) => ({ key })));
+}
+
+function createEmptyPrivateFields(keys = defaultPrivateKeys) {
+  return keys.map((key, index) => ({
+    key,
+    value: "",
+    color: colors[index % colors.length]
+  }));
+}
+
+function cloneFields(sourceFields) {
+  return sourceFields.map((field, index) => ({
+    key: field.key,
+    value: field.value,
+    color: colors[index % colors.length]
+  }));
+}
+
+function applySample(sample, options = {}) {
+  const { preservePrivateLock = false } = options;
+  fields = cloneFields(sample.fields);
+  rawPublicMarkdown = sample.publicMarkdown;
+  maskedMarkdown = maskText(rawPublicMarkdown);
+  if (!preservePrivateLock) {
+    privateUnlocked = true;
+    hasEncryptedPrivate = false;
+    savedPrivateKeys = sample.fields.map(field => field.key);
+  }
+}
+
 function publicDirty() {
-  return maskedMarkdown !== savedPublicMarkdown;
+  return rawPublicMarkdown !== savedPublicMarkdown;
 }
 
 function privateDirty() {
-  return privateFingerprint() !== savedPrivateFingerprint;
+  if (!hasEncryptedPrivate) {
+    return privateFingerprint() !== savedPrivateFingerprint;
+  }
+
+  if (privateUnlocked) {
+    return privateFingerprint() !== savedPrivateFingerprint;
+  }
+
+  return privateKeyFingerprint() !== JSON.stringify(savedPrivateKeys.map(key => ({ key })));
 }
 
 function setStatus(message, type = "info") {
@@ -136,63 +258,74 @@ function renderStatus(message = "", messageType = "info") {
   const lockText = privateUnlocked
     ? "隐私信息：已解锁"
     : hasEncryptedPrivate
-      ? "隐私信息：已加密保存，未解锁"
+      ? "隐私信息：已加密保存，显示占位行"
       : "隐私信息：未保存";
   const keyText = privateKeyInput.value ? "密钥：本次已输入" : "密钥：未输入";
-  const extra = message ? `<span class="status-pill ${messageType}">${escapeHtml(message)}</span>` : "";
 
-  statusBar.innerHTML = `
+  const hasKey = Boolean(privateKeyInput.value);
+  unlockPrivateButton.disabled = !hasKey;
+  saveAllButton.disabled = !hasKey;
+  addFieldButton.disabled = hasEncryptedPrivate && !privateUnlocked;
+  clearPrivateButton.disabled = false;
+
+  publicStatusBar.innerHTML = `
     <span class="status-pill ${publicClass}">公开信息：${publicDirty() ? "未保存" : "已保存"}</span>
+  `;
+
+  privateStatusBar.innerHTML = `
     <span class="status-pill ${privateClass}">${privateDirty() ? "隐私信息：未保存" : lockText}</span>
     <span class="status-pill">${keyText}</span>
-    ${extra}
+    ${message ? `<span class="status-pill ${messageType}">${escapeHtml(message)}</span>` : ""}
   `;
 }
 
 function renderFields() {
   fieldList.innerHTML = "";
+  const locked = hasEncryptedPrivate && !privateUnlocked;
 
   fields.forEach((field, index) => {
     const card = document.createElement("div");
     card.className = "field-card";
-    card.draggable = true;
+    card.draggable = !locked;
     card.dataset.index = String(index);
     card.style.setProperty("--field-color", field.color);
 
     card.innerHTML = `
       <div class="drag-handle" title="拖动排序">≡</div>
-      <input class="field-key" value="${escapeHtml(field.key)}" aria-label="字段名">
-      <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值">
-      <button class="field-action" data-action="delete" title="删除">×</button>
+      <input class="field-key" value="${escapeHtml(field.key)}" aria-label="字段名" ${locked ? "disabled" : ""}>
+      <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已加密保存" : "请输入值"}" ${locked ? "disabled" : ""}>
+      <button class="field-action" data-action="delete" title="删除" ${locked ? "disabled" : ""}>×</button>
     `;
 
     card.querySelector(".field-key").addEventListener("input", event => {
+      if (locked) return;
       const previousKey = fields[index].key;
       const nextKey = event.target.value.trim();
       fields[index].key = nextKey;
       if (previousKey && nextKey) {
-        maskedMarkdown = maskedMarkdown.replace(new RegExp(escapeRegExp(`{{${previousKey}}}`), "g"), `{{${nextKey}}}`);
-        renderMaskedEditor();
+        rawPublicMarkdown = rawPublicMarkdown.replace(new RegExp(escapeRegExp(`{{${previousKey}}}`), "g"), `{{${nextKey}}}`);
       }
-      updateOutput();
+      syncMaskedPublicText();
       renderStatus();
     });
 
     card.querySelector(".field-value").addEventListener("input", event => {
+      if (locked) return;
       fields[index].value = event.target.value;
-      updateOutput();
+      syncMaskedPublicText();
       renderStatus();
     });
 
     card.querySelector(".field-action").addEventListener("click", () => {
+      if (locked) return;
       fields.splice(index, 1);
       renderFields();
-      renderMaskedEditor();
-      updateOutput();
+      syncMaskedPublicText();
       renderStatus();
     });
 
     card.addEventListener("dragstart", event => {
+      if (locked) return;
       event.dataTransfer.setData("text/plain", String(index));
       card.classList.add("dragging");
     });
@@ -202,6 +335,7 @@ function renderFields() {
     card.addEventListener("dragover", event => event.preventDefault());
 
     card.addEventListener("drop", event => {
+      if (locked) return;
       event.preventDefault();
       const fromIndex = Number(event.dataTransfer.getData("text/plain"));
       moveField(fromIndex, index);
@@ -237,6 +371,10 @@ function maskText(text, htmlMode = false) {
   return output;
 }
 
+function getMaskedPublicText() {
+  return maskText(rawPublicMarkdown);
+}
+
 function unmaskText(text) {
   let output = text;
 
@@ -270,7 +408,17 @@ function updateOutput() {
 }
 
 function renderMaskedEditor() {
-  maskedEditor.innerHTML = colorizeTokens(maskedMarkdown);
+  maskedEditor.value = rawPublicMarkdown;
+}
+
+function renderMaskedPreview() {
+  maskedMarkdown = getMaskedPublicText();
+  maskedPreview.innerHTML = colorizeTokens(maskedMarkdown);
+}
+
+function syncMaskedPublicText() {
+  renderMaskedPreview();
+  updateOutput();
 }
 
 function readPrivateValue(key, fallback = "") {
@@ -278,7 +426,7 @@ function readPrivateValue(key, fallback = "") {
 }
 
 function getPublicBullets() {
-  return unmaskText(maskedMarkdown)
+  return unmaskText(getMaskedPublicText())
     .split("\n")
     .map(line => line.trim())
     .filter(line => /^[-*]\s+/.test(line))
@@ -332,13 +480,25 @@ function generateResumePreview() {
   `;
 }
 
+function regeneratePublicExample() {
+  if (hasEncryptedPrivate && !privateUnlocked) {
+    setStatus("请先解锁隐私信息，再生成联动示例", "warning");
+    return;
+  }
+  publicSampleIndex = (publicSampleIndex + 1) % demoSamples.length;
+  applySample(demoSamples[publicSampleIndex]);
+  renderFields();
+  renderMaskedEditor();
+  syncMaskedPublicText();
+  renderStatus("公开信息和隐私信息已联动更新", "ok");
+}
+
 function setWorkspaceView(view) {
   const isSource = view === "source";
   sourceView.classList.toggle("is-active", isSource);
   previewView.classList.toggle("is-active", !isSource);
   showSourceButton.classList.toggle("is-active", isSource);
   showPreviewButton.classList.toggle("is-active", !isSource);
-  workspaceTitle.textContent = isSource ? "公开信息" : "简历预览";
 }
 
 async function apiRead(path) {
@@ -354,18 +514,26 @@ async function loadSavedData() {
     const stateResponse = await apiRead("/api/state");
     appState = stateResponse ? await stateResponse.json() : {};
     hasEncryptedPrivate = Boolean(appState.privateEncrypted);
+    savedPrivateKeys = Array.isArray(appState.privateFieldKeys) ? appState.privateFieldKeys : [];
 
     const publicResponse = await apiRead("/api/public");
     if (publicResponse) {
-      maskedMarkdown = await publicResponse.text();
-      savedPublicMarkdown = maskedMarkdown;
+      rawPublicMarkdown = await publicResponse.text();
+      savedPublicMarkdown = rawPublicMarkdown;
     } else {
-      maskedMarkdown = maskText(demoMarkdown);
+      applySample(demoSamples[0], { preservePrivateLock: true });
       savedPublicMarkdown = "";
     }
 
     if (hasEncryptedPrivate) {
-      fields = [];
+      const keys = savedPrivateKeys.length
+        ? savedPrivateKeys
+        : Array.from({ length: appState.privateFieldCount || 0 }, (_, index) => `隐私字段${index + 1}`);
+      fields = createEmptyPrivateFields(keys);
+      privateUnlocked = false;
+      savedPrivateFingerprint = "";
+    } else if (appState.privateClearedAt) {
+      fields = createEmptyPrivateFields(savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys);
       privateUnlocked = false;
       savedPrivateFingerprint = privateFingerprint();
     } else {
@@ -373,7 +541,7 @@ async function loadSavedData() {
       privateUnlocked = true;
     }
   } catch {
-    maskedMarkdown = maskText(demoMarkdown);
+    applySample(demoSamples[0], { preservePrivateLock: true });
     savedPublicMarkdown = "";
     savedPrivateFingerprint = privateFingerprint();
     privateUnlocked = true;
@@ -382,6 +550,7 @@ async function loadSavedData() {
 
   renderFields();
   renderMaskedEditor();
+  renderMaskedPreview();
   generateResumePreview();
   renderStatus();
 }
@@ -390,7 +559,7 @@ async function savePublicData() {
   const response = await fetch("/api/public", {
     method: "PUT",
     headers: { "Content-Type": "text/plain; charset=utf-8" },
-    body: maskedMarkdown
+    body: rawPublicMarkdown
   });
 
   if (!response.ok) {
@@ -398,7 +567,7 @@ async function savePublicData() {
   }
 
   appState = await response.json();
-  savedPublicMarkdown = maskedMarkdown;
+  savedPublicMarkdown = rawPublicMarkdown;
 }
 
 function bytesToBase64(bytes) {
@@ -465,7 +634,13 @@ async function savePrivateData() {
   const response = await fetch("/api/private", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(encrypted)
+    body: JSON.stringify({
+      encrypted,
+      metadata: {
+        fieldKeys: fields.map(field => field.key),
+        fieldCount: fields.length
+      }
+    })
   });
 
   if (!response.ok) {
@@ -476,7 +651,36 @@ async function savePrivateData() {
   hasEncryptedPrivate = true;
   privateUnlocked = true;
   savedPrivateFingerprint = privateFingerprint();
+  savedPrivateKeys = fields.map(field => field.key);
   return true;
+}
+
+async function clearPrivateData() {
+  if (!window.confirm("将清除本地隐私信息、加密文件和状态，继续吗？")) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/private", { method: "DELETE" });
+    if (!response.ok) {
+      throw new Error("隐私信息清除失败");
+    }
+
+    appState = await response.json();
+    hasEncryptedPrivate = false;
+    privateUnlocked = false;
+  savedPrivateKeys = appState.privateFieldKeys || defaultPrivateKeys;
+  fields = createEmptyPrivateFields(savedPrivateKeys);
+  savedPrivateFingerprint = privateFingerprint();
+  privateKeyInput.value = "";
+  renderFields();
+  renderMaskedEditor();
+  renderMaskedPreview();
+  generateResumePreview();
+  renderStatus("隐私信息已清除", "ok");
+  } catch {
+    setStatus("清除隐私信息失败，请确认本地服务已启动", "warning");
+  }
 }
 
 async function unlockPrivateData() {
@@ -497,8 +701,9 @@ async function unlockPrivateData() {
     privateUnlocked = true;
     hasEncryptedPrivate = true;
     savedPrivateFingerprint = privateFingerprint();
+    savedPrivateKeys = fields.map(field => field.key);
     renderFields();
-    renderMaskedEditor();
+    renderMaskedPreview();
     generateResumePreview();
     setStatus("隐私信息已解锁", "ok");
   } catch {
@@ -508,6 +713,10 @@ async function unlockPrivateData() {
 
 async function saveAllData() {
   try {
+    if (!privateKeyInput.value) {
+      setStatus("请输入隐私密钥后再保存", "warning");
+      return;
+    }
     if (publicDirty()) {
       await savePublicData();
     }
@@ -525,27 +734,20 @@ async function saveAllData() {
 }
 
 addFieldButton.addEventListener("click", () => {
+  if (hasEncryptedPrivate && !privateUnlocked) {
+    setStatus("请先解锁隐私信息后再编辑字段", "warning");
+    return;
+  }
   fields.push({
     key: "新字段",
     value: "",
     color: colors[fields.length % colors.length]
   });
   renderFields();
+  syncMaskedPublicText();
   renderStatus();
 });
-
-resetDemoButton.addEventListener("click", () => {
-  fields = demoFields.map((field, index) => ({
-    ...field,
-    color: colors[index % colors.length]
-  }));
-  maskedMarkdown = maskText(demoMarkdown);
-  renderFields();
-  renderMaskedEditor();
-  generateResumePreview();
-  updateOutput();
-  renderStatus("示例已恢复，尚未保存", "warning");
-});
+regeneratePublicButton.addEventListener("click", regeneratePublicExample);
 
 printButton.addEventListener("click", () => {
   generateResumePreview();
@@ -559,13 +761,19 @@ showSourceButton.addEventListener("click", () => setWorkspaceView("source"));
 showPreviewButton.addEventListener("click", () => setWorkspaceView("preview"));
 unlockPrivateButton.addEventListener("click", unlockPrivateData);
 saveAllButton.addEventListener("click", saveAllData);
+clearPrivateButton.addEventListener("click", clearPrivateData);
 privateKeyInput.addEventListener("input", () => renderStatus());
 maskedEditor.addEventListener("input", () => {
-  maskedMarkdown = htmlToText(maskedEditor.innerHTML);
-  updateOutput();
+  rawPublicMarkdown = maskedEditor.value;
+  syncMaskedPublicText();
   renderStatus();
 });
 
-maskedEditor.addEventListener("blur", renderMaskedEditor);
-
+publicSampleIndex = 0;
+applySample(demoSamples[0]);
+renderFields();
+renderMaskedEditor();
+renderMaskedPreview();
+generateResumePreview();
+renderStatus();
 loadSavedData();
