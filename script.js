@@ -149,7 +149,6 @@ const maskedPreview = document.querySelector("#maskedPreview");
 const resumePreview = document.querySelector("#resumePreview");
 const addFieldButton = document.querySelector("#addField");
 const printButton = document.querySelector("#printResume");
-const generateButton = document.querySelector("#generateResume");
 const regeneratePublicButton = document.querySelector("#regeneratePublic");
 const sourceView = document.querySelector("#sourceView");
 const previewView = document.querySelector("#previewView");
@@ -159,7 +158,7 @@ const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
 const saveAllButton = document.querySelector("#saveAll");
 const clearPrivateButton = document.querySelector("#clearPrivate");
-const publicStatusBar = document.querySelector("#publicStatusBar");
+const syncStatusBar = document.querySelector("#syncStatusBar");
 const privateStatusBar = document.querySelector("#privateStatusBar");
 
 function escapeHtml(value) {
@@ -260,7 +259,6 @@ function renderStatus(message = "", messageType = "info") {
     : hasEncryptedPrivate
       ? "隐私信息：已加密保存，显示占位行"
       : "隐私信息：未保存";
-  const keyText = privateKeyInput.value ? "密钥：本次已输入" : "密钥：未输入";
 
   const hasKey = Boolean(privateKeyInput.value);
   unlockPrivateButton.disabled = !hasKey;
@@ -268,13 +266,12 @@ function renderStatus(message = "", messageType = "info") {
   addFieldButton.disabled = hasEncryptedPrivate && !privateUnlocked;
   clearPrivateButton.disabled = false;
 
-  publicStatusBar.innerHTML = `
-    <span class="status-pill ${publicClass}">公开信息：${publicDirty() ? "未保存" : "已保存"}</span>
+  syncStatusBar.innerHTML = `
+    <span class="status-pill ${publicClass} ${privateClass}">保存状态：${publicDirty() || privateDirty() ? "未保存" : "已保存"}</span>
   `;
 
   privateStatusBar.innerHTML = `
     <span class="status-pill ${privateClass}">${privateDirty() ? "隐私信息：未保存" : lockText}</span>
-    <span class="status-pill">${keyText}</span>
     ${message ? `<span class="status-pill ${messageType}">${escapeHtml(message)}</span>` : ""}
   `;
 }
@@ -490,7 +487,7 @@ function regeneratePublicExample() {
   renderFields();
   renderMaskedEditor();
   syncMaskedPublicText();
-  renderStatus("公开信息和隐私信息已联动更新", "ok");
+  renderStatus();
 }
 
 function setWorkspaceView(view) {
@@ -752,10 +749,6 @@ regeneratePublicButton.addEventListener("click", regeneratePublicExample);
 printButton.addEventListener("click", () => {
   generateResumePreview();
   window.print();
-});
-generateButton.addEventListener("click", () => {
-  generateResumePreview();
-  setWorkspaceView("preview");
 });
 showSourceButton.addEventListener("click", () => setWorkspaceView("source"));
 showPreviewButton.addEventListener("click", () => setWorkspaceView("preview"));

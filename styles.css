@@ -1,13 +1,13 @@
 :root {
   color-scheme: light;
-  --bg: #f2f3f5;
+  --bg: #eef2f6;
   --panel: #ffffff;
-  --text: #15171a;
-  --muted: #69707a;
-  --line: #d8dde5;
-  --soft: #f7f8fa;
+  --text: #171a1f;
+  --muted: #66707c;
+  --line: #d9dee6;
+  --soft: #f7f9fb;
   --accent: #276ef1;
-  --shadow: 0 12px 32px rgba(18, 28, 45, 0.09);
+  --shadow: 0 10px 28px rgba(18, 28, 45, 0.08);
 }
 
 * {
@@ -20,6 +20,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 button,
@@ -31,9 +33,9 @@ textarea {
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: 14px;
   height: 100vh;
-  padding: 16px;
+  padding: 14px;
 }
 
 .panel {
@@ -41,7 +43,7 @@ textarea {
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: var(--shadow);
 }
 
@@ -73,6 +75,11 @@ textarea {
   min-height: 0;
   border-radius: 0;
   box-shadow: none;
+  background: #fff;
+}
+
+.public-panel {
+  border-right: 1px solid var(--line);
 }
 
 .panel-header {
@@ -80,8 +87,8 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 72px;
-  padding: 16px;
+  min-height: 60px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -92,8 +99,9 @@ textarea {
 h1,
 h2 {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
+  font-size: 18px;
+  line-height: 1.15;
+  font-weight: 750;
 }
 
 .icon-button,
@@ -106,19 +114,19 @@ h2 {
 }
 
 .icon-button {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
 }
 
 .text-button {
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 10px;
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -147,15 +155,15 @@ h2 {
 }
 
 .segment {
-  min-height: 34px;
+  min-height: 32px;
   border: 0;
   border-right: 1px solid var(--line);
   background: #fff;
   color: var(--muted);
   cursor: pointer;
   padding: 0 12px;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .segment:last-child {
@@ -168,12 +176,13 @@ h2 {
 }
 
 .key-input {
-  width: 128px;
-  min-height: 36px;
+  width: 120px;
+  min-height: 32px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 10px;
   outline: none;
+  font-size: 12px;
 }
 
 .key-input:focus {
@@ -184,7 +193,8 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
-  padding: 4px 9px;
+  padding: 3px 8px;
+  font-size: 12px;
 }
 
 .status-pill.warning {
@@ -202,21 +212,22 @@ h2 {
 .field-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   overflow: auto;
   padding: 12px;
+  background: #fff;
 }
 
 .field-card {
   display: grid;
-  grid-template-columns: 14px minmax(66px, 0.65fr) minmax(120px, 1fr) 30px;
-  gap: 8px;
+  grid-template-columns: 14px minmax(66px, 0.7fr) minmax(120px, 1fr) 30px;
+  gap: 7px;
   align-items: center;
   border: 1px solid var(--line);
   border-left: 6px solid var(--field-color);
   border-radius: 8px;
   background: #fff;
-  padding: 8px;
+  padding: 7px;
 }
 
 .field-card.dragging {
@@ -235,24 +246,24 @@ h2 {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 7px 8px;
+  padding: 6px 8px;
   font-weight: 700;
   outline: none;
 }
 
 .field-action {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 7px;
   color: var(--muted);
 }
 
 .field-value {
   width: 100%;
-  min-height: 34px;
+  min-height: 32px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 7px 8px;
+  padding: 6px 8px;
   outline: none;
 }
 
@@ -269,7 +280,7 @@ textarea {
   resize: none;
   border: 0;
   border-bottom: 1px solid var(--line);
-  padding: 18px;
+  padding: 16px;
   outline: none;
   color: var(--text);
   line-height: 1.55;
@@ -279,7 +290,7 @@ textarea {
 }
 
 .section-title {
-  padding: 10px 16px;
+  padding: 10px 14px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 750;
@@ -313,7 +324,7 @@ textarea {
   background: var(--soft);
   color: var(--text);
   white-space: pre-wrap;
-  line-height: 1.55;
+  line-height: 1.58;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
 }
@@ -336,9 +347,9 @@ textarea {
 .resume-page {
   overflow: auto;
   margin: 0;
-  padding: 34px 42px;
+  padding: 30px 36px;
   background: #fff;
-  line-height: 1.48;
+  line-height: 1.5;
 }
 
 .resume-page .resume-header {
@@ -350,20 +361,20 @@ textarea {
 }
 
 .resume-page .resume-name {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 800;
 }
 
 .resume-page .resume-title {
   margin-top: 5px;
   color: #4b5563;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .resume-page .resume-contact {
   color: #4b5563;
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.65;
   text-align: right;
 }
 
@@ -371,7 +382,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  margin: 14px 0 5px;
+  margin: 12px 0 5px;
 }
 
 .resume-page .entry-main {
@@ -385,20 +396,20 @@ textarea {
 }
 
 .resume-page h1 {
-  font-size: 30px;
+  font-size: 28px;
   margin-bottom: 4px;
 }
 
 .resume-page h2 {
-  margin: 24px 0 8px;
+  margin: 22px 0 8px;
   padding-bottom: 5px;
   border-bottom: 1px solid #b8c0cc;
-  font-size: 17px;
+  font-size: 16px;
 }
 
 .resume-page h3 {
-  margin: 16px 0 6px;
-  font-size: 15px;
+  margin: 14px 0 6px;
+  font-size: 14px;
 }
 
 .resume-page p {
@@ -424,7 +435,7 @@ textarea {
 
 .public-panel > .panel-header,
 .privacy-panel > .panel-header {
-  min-height: 64px;
+  min-height: 56px;
 }
 
 .left-rail > .panel-header {

@@ -11,6 +11,7 @@
       <section class="panel left-rail">
         <div class="panel-header">
           <h2>AI 简历生成-保护隐私</h2>
+          <div class="status-inline" id="syncStatusBar"></div>
           <div class="header-actions">
             <input class="key-input" id="privateKey" type="password" autocomplete="off" placeholder="隐私密钥">
             <button class="text-button" id="unlockPrivate">解锁隐私</button>
@@ -23,7 +24,6 @@
             <div class="panel-header">
               <h2>公开信息</h2>
               <div class="header-actions">
-                <div class="status-inline" id="publicStatusBar"></div>
                 <button class="text-button" id="regeneratePublic">重新生成示例</button>
               </div>
             </div>
@@ -50,7 +50,6 @@
               <button class="segment is-active" id="showSource">AI读取信息</button>
               <button class="segment" id="showPreview">简历预览</button>
             </div>
-            <button class="text-button" id="generateResume">生成简历</button>
             <button class="text-button" id="printResume">导出 PDF</button>
           </div>
         </div>
