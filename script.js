@@ -57,6 +57,11 @@ let fields = demoFields.map((field, index) => ({
 }));
 
 let maskedMarkdown = "";
+let savedPublicMarkdown = "";
+let savedPrivateFingerprint = "";
+let privateUnlocked = false;
+let hasEncryptedPrivate = false;
+let appState = {};
 
 const fieldList = document.querySelector("#fieldList");
 const maskedEditor = document.querySelector("#maskedEditor");
@@ -70,6 +75,10 @@ const previewView = document.querySelector("#previewView");
 const showSourceButton = document.querySelector("#showSource");
 const showPreviewButton = document.querySelector("#showPreview");
 const workspaceTitle = document.querySelector("#workspaceTitle");
+const privateKeyInput = document.querySelector("#privateKey");
+const unlockPrivateButton = document.querySelector("#unlockPrivate");
+const saveAllButton = document.querySelector("#saveAll");
+const statusBar = document.querySelector("#statusBar");
 
 function escapeHtml(value) {
   return value
@@ -105,6 +114,41 @@ function getActiveFields() {
     .sort((a, b) => b.value.length - a.value.length);
 }
 
+function privateFingerprint() {
+  return JSON.stringify(fields.map(({ key, value, color }) => ({ key, value, color })));
+}
+
+function publicDirty() {
+  return maskedMarkdown !== savedPublicMarkdown;
+}
+
+function privateDirty() {
+  return privateFingerprint() !== savedPrivateFingerprint;
+}
+
+function setStatus(message, type = "info") {
+  renderStatus(message, type);
+}
+
+function renderStatus(message = "", messageType = "info") {
+  const publicClass = publicDirty() ? "warning" : "ok";
+  const privateClass = privateDirty() ? "warning" : "ok";
+  const lockText = privateUnlocked
+    ? "隐私信息：已解锁"
+    : hasEncryptedPrivate
+      ? "隐私信息：已加密保存，未解锁"
+      : "隐私信息：未保存";
+  const keyText = privateKeyInput.value ? "密钥：本次已输入" : "密钥：未输入";
+  const extra = message ? `<span class="status-pill ${messageType}">${escapeHtml(message)}</span>` : "";
+
+  statusBar.innerHTML = `
+    <span class="status-pill ${publicClass}">公开信息：${publicDirty() ? "未保存" : "已保存"}</span>
+    <span class="status-pill ${privateClass}">${privateDirty() ? "隐私信息：未保存" : lockText}</span>
+    <span class="status-pill">${keyText}</span>
+    ${extra}
+  `;
+}
+
 function renderFields() {
   fieldList.innerHTML = "";
 
@@ -131,11 +175,13 @@ function renderFields() {
         renderMaskedEditor();
       }
       updateOutput();
+      renderStatus();
     });
 
     card.querySelector(".field-value").addEventListener("input", event => {
       fields[index].value = event.target.value;
       updateOutput();
+      renderStatus();
     });
 
     card.querySelector(".field-action").addEventListener("click", () => {
@@ -143,6 +189,7 @@ function renderFields() {
       renderFields();
       renderMaskedEditor();
       updateOutput();
+      renderStatus();
     });
 
     card.addEventListener("dragstart", event => {
@@ -173,6 +220,7 @@ function moveField(fromIndex, toIndex) {
   fields.splice(toIndex, 0, field);
   renderFields();
   updateOutput();
+  renderStatus();
 }
 
 function maskText(text, htmlMode = false) {
@@ -293,6 +341,189 @@ function setWorkspaceView(view) {
   workspaceTitle.textContent = isSource ? "公开信息" : "简历预览";
 }
 
+async function apiRead(path) {
+  const response = await fetch(path);
+  if (!response.ok) {
+    return null;
+  }
+  return response;
+}
+
+async function loadSavedData() {
+  try {
+    const stateResponse = await apiRead("/api/state");
+    appState = stateResponse ? await stateResponse.json() : {};
+    hasEncryptedPrivate = Boolean(appState.privateEncrypted);
+
+    const publicResponse = await apiRead("/api/public");
+    if (publicResponse) {
+      maskedMarkdown = await publicResponse.text();
+      savedPublicMarkdown = maskedMarkdown;
+    } else {
+      maskedMarkdown = maskText(demoMarkdown);
+      savedPublicMarkdown = "";
+    }
+
+    if (hasEncryptedPrivate) {
+      fields = [];
+      privateUnlocked = false;
+      savedPrivateFingerprint = privateFingerprint();
+    } else {
+      savedPrivateFingerprint = privateFingerprint();
+      privateUnlocked = true;
+    }
+  } catch {
+    maskedMarkdown = maskText(demoMarkdown);
+    savedPublicMarkdown = "";
+    savedPrivateFingerprint = privateFingerprint();
+    privateUnlocked = true;
+    setStatus("保存服务未启动，当前仅可预览", "warning");
+  }
+
+  renderFields();
+  renderMaskedEditor();
+  generateResumePreview();
+  renderStatus();
+}
+
+async function savePublicData() {
+  const response = await fetch("/api/public", {
+    method: "PUT",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    body: maskedMarkdown
+  });
+
+  if (!response.ok) {
+    throw new Error("公开信息保存失败");
+  }
+
+  appState = await response.json();
+  savedPublicMarkdown = maskedMarkdown;
+}
+
+function bytesToBase64(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+}
+
+function base64ToBytes(value) {
+  return Uint8Array.from(atob(value), char => char.charCodeAt(0));
+}
+
+async function deriveKey(password, salt) {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptPrivateFields(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const plaintext = new TextEncoder().encode(JSON.stringify({ fields }));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+
+  return {
+    version: 1,
+    algorithm: "AES-GCM",
+    kdf: "PBKDF2-SHA256",
+    iterations: 250000,
+    salt: bytesToBase64(salt),
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(ciphertext)
+  };
+}
+
+async function decryptPrivateFields(password, payload) {
+  const salt = base64ToBytes(payload.salt);
+  const iv = base64ToBytes(payload.iv);
+  const key = await deriveKey(password, salt);
+  const ciphertext = base64ToBytes(payload.ciphertext);
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  return JSON.parse(new TextDecoder().decode(plaintext)).fields || [];
+}
+
+async function savePrivateData() {
+  const password = privateKeyInput.value;
+  if (!password) {
+    setStatus("请输入隐私密钥后再保存", "warning");
+    return false;
+  }
+
+  const encrypted = await encryptPrivateFields(password);
+  const response = await fetch("/api/private", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(encrypted)
+  });
+
+  if (!response.ok) {
+    throw new Error("隐私信息保存失败");
+  }
+
+  appState = await response.json();
+  hasEncryptedPrivate = true;
+  privateUnlocked = true;
+  savedPrivateFingerprint = privateFingerprint();
+  return true;
+}
+
+async function unlockPrivateData() {
+  const password = privateKeyInput.value;
+  if (!password) {
+    setStatus("请输入隐私密钥", "warning");
+    return;
+  }
+
+  const response = await apiRead("/api/private");
+  if (!response) {
+    setStatus("没有已保存的隐私信息", "warning");
+    return;
+  }
+
+  try {
+    fields = await decryptPrivateFields(password, await response.json());
+    privateUnlocked = true;
+    hasEncryptedPrivate = true;
+    savedPrivateFingerprint = privateFingerprint();
+    renderFields();
+    renderMaskedEditor();
+    generateResumePreview();
+    setStatus("隐私信息已解锁", "ok");
+  } catch {
+    setStatus("密钥不正确，无法解锁", "warning");
+  }
+}
+
+async function saveAllData() {
+  try {
+    if (publicDirty()) {
+      await savePublicData();
+    }
+    if (privateDirty() || !hasEncryptedPrivate) {
+      const saved = await savePrivateData();
+      if (!saved) {
+        renderStatus();
+        return;
+      }
+    }
+    setStatus("已保存", "ok");
+  } catch {
+    setStatus("保存失败，请确认本地服务已启动", "warning");
+  }
+}
+
 addFieldButton.addEventListener("click", () => {
   fields.push({
     key: "新字段",
@@ -300,6 +531,7 @@ addFieldButton.addEventListener("click", () => {
     color: colors[fields.length % colors.length]
   });
   renderFields();
+  renderStatus();
 });
 
 resetDemoButton.addEventListener("click", () => {
@@ -312,6 +544,7 @@ resetDemoButton.addEventListener("click", () => {
   renderMaskedEditor();
   generateResumePreview();
   updateOutput();
+  renderStatus("示例已恢复，尚未保存", "warning");
 });
 
 printButton.addEventListener("click", () => {
@@ -324,15 +557,15 @@ generateButton.addEventListener("click", () => {
 });
 showSourceButton.addEventListener("click", () => setWorkspaceView("source"));
 showPreviewButton.addEventListener("click", () => setWorkspaceView("preview"));
+unlockPrivateButton.addEventListener("click", unlockPrivateData);
+saveAllButton.addEventListener("click", saveAllData);
+privateKeyInput.addEventListener("input", () => renderStatus());
 maskedEditor.addEventListener("input", () => {
   maskedMarkdown = htmlToText(maskedEditor.innerHTML);
   updateOutput();
+  renderStatus();
 });
 
 maskedEditor.addEventListener("blur", renderMaskedEditor);
 
-maskedMarkdown = maskText(demoMarkdown);
-renderFields();
-renderMaskedEditor();
-generateResumePreview();
-updateOutput();
+loadSavedData();

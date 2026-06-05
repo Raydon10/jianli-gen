@@ -18,11 +18,15 @@
               <button class="segment is-active" id="showSource">公开信息</button>
               <button class="segment" id="showPreview">简历预览</button>
             </div>
+            <input class="key-input" id="privateKey" type="password" autocomplete="off" placeholder="隐私密钥">
+            <button class="text-button" id="unlockPrivate">解锁隐私</button>
+            <button class="text-button" id="saveAll">保存</button>
             <button class="text-button" id="generateResume">生成预览</button>
             <button class="text-button" id="resetDemo">恢复示例</button>
             <button class="text-button" id="printResume">导出 PDF</button>
           </div>
         </div>
+        <div class="status-bar" id="statusBar"></div>
         <div class="workspace-view is-active" id="sourceView">
           <div class="section-title">发送给 AI 的脱敏内容</div>
           <div class="masked-editor" id="maskedEditor" contenteditable="true" spellcheck="false"></div>
