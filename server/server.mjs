@@ -1,18 +1,18 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = fileURLToPath(new URL(".", import.meta.url));
-const dataDir = join(root, "data");
+const root = fileURLToPath(new URL("..", import.meta.url));
+const dataDir = join(root, "resume-data");
 const publicMaskedPath = join(dataDir, "ai-input.md");
 const legacyAiInputPath = join(dataDir, "ai.md");
 const legacyPublicMaskedPath = join(dataDir, "public.masked.md");
 const privatePath = join(dataDir, "private.enc.json");
 const statePath = join(dataDir, "state.json");
 const port = Number(process.env.PORT || 8790);
-const host = "127.0.0.1";
+const host = "0.0.0.0";
 const defaultPrivateKeys = ["姓名", "年龄", "手机", "邮箱", "城市", "公司"];
 
 const mimeTypes = {
@@ -121,8 +121,31 @@ async function handleApi(request, response) {
   if (request.url === "/api/private" && request.method === "PUT") {
     const body = await readBody(request);
     const payload = JSON.parse(body);
-    const encrypted = payload.encrypted ?? payload;
     const metadata = payload.metadata ?? {};
+    if (payload.mode === "plain") {
+      const fields = Array.isArray(payload.fields) ? payload.fields : [];
+      const plainPayload = {
+        mode: "plain",
+        fields,
+        metadata
+      };
+      await ensureDataDir();
+      await writeFile(privatePath, `${JSON.stringify(plainPayload, null, 2)}\n`);
+      const state = await updateState({
+        privateSavedAt: new Date().toISOString(),
+        privateEncrypted: false,
+        privateMode: "plain",
+        privateCipherHash: null,
+        privateFieldKeys: Array.isArray(metadata.fieldKeys) ? metadata.fieldKeys : fields.map(field => field.key),
+        privateFieldTypes: Array.isArray(metadata.fieldTypes) ? metadata.fieldTypes : fields.map(() => "text"),
+        privateFieldCount: Number.isInteger(metadata.fieldCount) ? metadata.fieldCount : fields.length,
+        privateClearedAt: new Date().toISOString()
+      });
+      send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
+      return true;
+    }
+
+    const encrypted = payload.encrypted ?? payload;
     if (!encrypted.ciphertext || !encrypted.salt || !encrypted.iv) {
       send(response, 400, "Invalid encrypted payload");
       return true;
@@ -132,6 +155,7 @@ async function handleApi(request, response) {
     const state = await updateState({
       privateSavedAt: new Date().toISOString(),
       privateEncrypted: true,
+      privateMode: "encrypted",
       privateCipherHash: hash(JSON.stringify(encrypted)),
       privateFieldKeys: Array.isArray(metadata.fieldKeys) ? metadata.fieldKeys : [],
       privateFieldTypes: Array.isArray(metadata.fieldTypes) ? metadata.fieldTypes : [],
@@ -144,11 +168,32 @@ async function handleApi(request, response) {
   if (request.url === "/api/private" && request.method === "DELETE") {
     await ensureDataDir();
     try {
-      await unlink(privatePath);
+      const state = await readJson(statePath, {});
+      const keys = Array.isArray(state.privateFieldKeys) && state.privateFieldKeys.length
+        ? state.privateFieldKeys
+        : defaultPrivateKeys;
+      const types = Array.isArray(state.privateFieldTypes) && state.privateFieldTypes.length
+        ? state.privateFieldTypes
+        : keys.map(() => "text");
+      const plainPayload = {
+        mode: "plain",
+        fields: keys.map((key, index) => ({
+          key,
+          type: types[index] || "text",
+          value: ""
+        })),
+        metadata: {
+          fieldKeys: keys,
+          fieldTypes: types,
+          fieldCount: keys.length
+        }
+      };
+      await writeFile(privatePath, `${JSON.stringify(plainPayload, null, 2)}\n`);
     } catch {}
     const state = await updateState({
-      privateSavedAt: null,
+      privateSavedAt: new Date().toISOString(),
       privateEncrypted: false,
+      privateMode: "plain",
       privateCipherHash: null,
       privateFieldKeys: defaultPrivateKeys,
       privateFieldTypes: defaultPrivateKeys.map(() => "text"),
@@ -164,7 +209,7 @@ async function handleApi(request, response) {
 
 async function serveStatic(request, response) {
   const url = new URL(request.url, `http://${host}:${port}`);
-  const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
+  const pathname = url.pathname === "/" ? "/app/index.html" : url.pathname;
   const normalized = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(root, normalized);
 

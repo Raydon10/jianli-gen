@@ -166,41 +166,9 @@ h2 {
   min-width: 0;
 }
 
-.info-button {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  margin-left: -4px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1;
-  cursor: help;
-}
-
-.info-tooltip {
-  position: absolute;
-  right: 0;
-  top: 40px;
-  z-index: 5;
-  display: none;
-  width: 220px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  color: var(--text);
-  box-shadow: 0 12px 24px rgba(18, 28, 45, 0.12);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: left;
-}
-
 .inline-action {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 0 2px;
   border: 0;
   background: none;
@@ -221,22 +189,73 @@ h2 {
   outline: none;
 }
 
-.info-button:hover .info-tooltip,
-.info-button:focus-visible .info-tooltip {
-  display: block;
-}
-
-.info-button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent), white 30%);
-  outline-offset: 2px;
-}
-
 .status-inline {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
   min-width: 0;
+}
+
+.private-unlock-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.private-unlock-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 6;
+  width: 300px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(18, 28, 45, 0.12);
+}
+
+.private-unlock-note {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.private-unlock-popover .key-input {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.private-unlock-popover .text-button {
+  min-width: 100%;
+}
+
+.private-unlock-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+}
+
+.private-unlock-remember input {
+  margin: 0;
+}
+
+.private-unlock-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
 }
 
 .key-input {
@@ -369,18 +388,21 @@ h2 {
   gap: 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 4px 8px;
+  padding: 6px 8px;
   background: #fff;
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
   overflow: hidden;
 }
 
 .field-photo-trigger.is-empty {
   color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .field-photo-trigger:disabled {

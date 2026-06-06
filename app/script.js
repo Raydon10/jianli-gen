@@ -145,6 +145,7 @@ let savedPrivateValues = {};
 let savedPrivateFingerprint = "";
 let savedPrivateKeys = [];
 let savedPrivateTypes = [];
+let privateMode = "plain";
 let privateUnlocked = false;
 let privateValuesResolved = false;
 let hasEncryptedPrivate = false;
@@ -167,13 +168,21 @@ const printButton = document.querySelector("#printResume");
 const regeneratePublicButton = document.querySelector("#regeneratePublic");
 const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
+const unlockPrivateConfirmButton = document.querySelector("#unlockPrivateConfirm");
+const rememberUnlockCheckbox = document.querySelector("#rememberUnlock");
 const saveAllButton = document.querySelector("#saveAll");
 const clearPrivateButton = document.querySelector("#clearPrivate");
 const addImageButton = document.querySelector("#addImage");
 const aiStatusBar = document.querySelector("#aiStatusBar");
 const privateStatusBar = document.querySelector("#privateStatusBar");
+const privateUnlockPopover = document.querySelector("#privateUnlockPopover");
+const privateUnlockNote = document.querySelector("#privateUnlockNote");
 const toast = document.querySelector("#toast");
 let toastTimer = null;
+let privateUnlockPopoverOpen = false;
+let privateUnlockAction = "unlock";
+let privateUnlockPopoverAnchor = null;
+const rememberedUnlockPasswordKey = "jianli-gen.remembered-unlock-password";
 
 if (maskedPreview) {
   maskedPreview.innerHTML = "";
@@ -495,12 +504,130 @@ function setDragPreview(card, index, before) {
   card.classList.toggle("drop-after", !before);
 }
 
+function setPrivateUnlockPopoverOpen(open) {
+  privateUnlockPopoverOpen = open;
+  if (!privateUnlockPopover) {
+    return;
+  }
+  if (!open) {
+    privateUnlockPopoverAnchor = null;
+  }
+  const showForPlainModeAction = privateMode === "plain" && privateUnlockAction !== "unlock";
+  privateUnlockPopover.hidden = !open || (privateUnlocked && !showForPlainModeAction);
+  if (open && (!privateUnlocked || showForPlainModeAction)) {
+    positionPrivateUnlockPopover(privateUnlockPopoverAnchor || unlockPrivateButton);
+    if (rememberUnlockCheckbox?.checked) {
+      const rememberedPassword = sessionStorage.getItem(rememberedUnlockPasswordKey);
+      if (rememberedPassword) {
+        privateKeyInput.value = rememberedPassword;
+      }
+    }
+    window.requestAnimationFrame(() => privateKeyInput?.focus());
+  }
+}
+
+function positionPrivateUnlockPopover(anchor) {
+  if (!privateUnlockPopover || !anchor) {
+    return;
+  }
+  const anchorRect = anchor.getBoundingClientRect();
+  const popoverRect = privateUnlockPopover.getBoundingClientRect();
+  const viewportPadding = 12;
+  const preferredLeft = anchorRect.left;
+  const preferredTop = anchorRect.bottom + 8;
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - popoverRect.width - viewportPadding);
+  const maxTop = Math.max(viewportPadding, window.innerHeight - popoverRect.height - viewportPadding);
+
+  privateUnlockPopover.style.position = "fixed";
+  privateUnlockPopover.style.left = `${Math.min(Math.max(preferredLeft, viewportPadding), maxLeft)}px`;
+  privateUnlockPopover.style.top = `${Math.min(Math.max(preferredTop, viewportPadding), maxTop)}px`;
+}
+
+function setPrivateUnlockPopoverMode(action) {
+  privateUnlockAction = action;
+  if (!privateUnlockNote || !unlockPrivateConfirmButton) {
+    return;
+  }
+
+  const contentMap = {
+    unlock: {
+      note: "请输入密钥后解锁隐私信息，勾选记住密钥，可在本次会话内自动恢复。",
+      button: "解锁"
+    },
+    save: {
+      note:
+        privateMode === "plain"
+          ? "当前是无需密钥状态，请输入密钥后保存，保存后隐私信息将恢复为需要密钥的状态。"
+          : "当前隐私区需要密钥，输入密钥后继续保存，勾选记住密钥可在本次会话内自动恢复。",
+      button: "保存"
+    }
+  };
+  const content = contentMap[action] || contentMap.unlock;
+
+  privateUnlockNote.textContent = content.note;
+  unlockPrivateConfirmButton.textContent = content.button;
+  if (rememberUnlockCheckbox?.closest) {
+    const rememberRow = rememberUnlockCheckbox.closest(".private-unlock-remember");
+    if (rememberRow) {
+      rememberRow.hidden = false;
+    }
+  }
+  const hint = document.querySelector(".private-unlock-hint");
+  if (hint) {
+    hint.hidden = action === "lock";
+  }
+}
+
+function openPrivateCredentialPrompt(action, anchor = null) {
+  privateUnlockPopoverAnchor = anchor || (action === "save" ? saveAllButton : unlockPrivateButton);
+  setPrivateUnlockPopoverMode(action);
+  setPrivateUnlockPopoverOpen(true);
+  if (action === "save") {
+    setStatus(
+      privateMode === "plain"
+        ? "当前是无需密钥状态，请输入密钥后保存"
+        : "当前隐私区需要密钥，请输入密钥后继续保存",
+      "warning"
+    );
+  } else {
+    setStatus("请输入密钥后解锁隐私信息", "warning");
+  }
+  renderStatus();
+}
+
+function updateRememberedUnlockPassword(password) {
+  if (!rememberUnlockCheckbox?.checked || !password) {
+    sessionStorage.removeItem(rememberedUnlockPasswordKey);
+    return;
+  }
+  sessionStorage.setItem(rememberedUnlockPasswordKey, password);
+}
+
+function getRememberedUnlockPassword() {
+  if (!rememberUnlockCheckbox?.checked) {
+    return "";
+  }
+  return sessionStorage.getItem(rememberedUnlockPasswordKey) || "";
+}
+
+function getAvailablePrivatePassword() {
+  return privateKeyInput?.value || getRememberedUnlockPassword();
+}
+
 function renderStatus() {
   const privateClass = privateDirty() ? "warning" : "ok";
 
   unlockPrivateButton.textContent = privateUnlocked ? "锁定" : "解锁";
+  unlockPrivateButton.hidden = false;
   unlockPrivateButton.disabled = false;
-  saveAllButton.disabled = !(publicDirty() || privateDirty());
+  saveAllButton.disabled = !(publicDirty() || privateDirty() || privateMode === "plain");
+  if (privateUnlockPopover) {
+    const showForPlainModeAction = privateMode === "plain" && privateUnlockAction === "save";
+    privateUnlockPopover.hidden = !privateUnlockPopoverOpen || (privateUnlocked && !showForPlainModeAction);
+    if (!privateUnlockPopover.hidden && privateUnlockPopoverAnchor) {
+      positionPrivateUnlockPopover(privateUnlockPopoverAnchor);
+    }
+  }
 
   aiStatusBar.innerHTML = `
     <span class="status-tag ${publicDirty() ? "warning" : "ok"}">${publicDirty() ? "未保存" : "已保存"}</span>
@@ -542,7 +669,7 @@ function renderFields() {
             <input class="field-photo-input" type="file" accept="image/*" aria-label="上传图片" ${locked ? "disabled" : ""}>
           `
           : `
-            <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "请输入值"}" ${locked ? "disabled" : ""}>
+            <input class="field-value" type="${locked ? "password" : "text"}" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "请输入值"}" ${locked ? "disabled" : ""}>
           `
       }
       <button class="field-action" data-action="delete" title="删除">×</button>
@@ -1171,7 +1298,8 @@ async function loadSavedData() {
   try {
     const stateResponse = await apiRead("/api/state");
     appState = stateResponse ? await stateResponse.json() : {};
-    hasEncryptedPrivate = Boolean(appState.privateEncrypted);
+    privateMode = appState.privateMode || (appState.privateEncrypted ? "encrypted" : "plain");
+    hasEncryptedPrivate = privateMode === "encrypted";
     savedPrivateKeys = Array.isArray(appState.privateFieldKeys) ? appState.privateFieldKeys : [];
     savedPrivateTypes = Array.isArray(appState.privateFieldTypes) ? appState.privateFieldTypes : [];
 
@@ -1182,7 +1310,17 @@ async function loadSavedData() {
       savedMaskedPublicMarkdown = "";
     }
 
-    if (hasEncryptedPrivate) {
+    if (rememberUnlockCheckbox && sessionStorage.getItem(rememberedUnlockPasswordKey)) {
+      rememberUnlockCheckbox.checked = true;
+    }
+    if (privateMode !== "encrypted") {
+      sessionStorage.removeItem(rememberedUnlockPasswordKey);
+      if (rememberUnlockCheckbox) {
+        rememberUnlockCheckbox.checked = false;
+      }
+    }
+
+    if (privateMode === "encrypted") {
       const keys = savedPrivateKeys.length
         ? savedPrivateKeys
         : Array.from({ length: appState.privateFieldCount || 0 }, (_, index) => `隐私字段${index + 1}`);
@@ -1191,24 +1329,49 @@ async function loadSavedData() {
       privateValuesResolved = false;
       savedPrivateValues = {};
       savedPrivateFingerprint = "";
-    } else if (appState.privateClearedAt) {
-      fields = createEmptyPrivateFields(
-        savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys,
-        savedPrivateTypes
-      );
-      privateUnlocked = false;
-      privateValuesResolved = false;
+    } else {
+      const privateResponse = await apiRead("/api/private");
+      if (privateResponse) {
+        const payload = await privateResponse.json();
+        const plainFields = Array.isArray(payload.fields) ? payload.fields : [];
+        if (plainFields.length) {
+          fields = plainFields.map((field, index) => ({
+            ...field,
+            type: normalizeFieldType(field.type),
+            color: colors[index % colors.length]
+          }));
+        } else if (appState.privateMode === "plain" || appState.privateClearedAt) {
+          fields = createEmptyPrivateFields(
+            savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys,
+            savedPrivateTypes
+          );
+        } else {
+          fields = fields.map((field, index) => ({
+            ...field,
+            type: normalizeFieldType(field.type),
+            color: field.color || colors[index % colors.length]
+          }));
+        }
+      } else if (appState.privateMode === "plain" || appState.privateClearedAt) {
+        fields = createEmptyPrivateFields(
+          savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys,
+          savedPrivateTypes
+        );
+      } else {
+        fields = fields.map((field, index) => ({
+          ...field,
+          type: normalizeFieldType(field.type),
+          color: field.color || colors[index % colors.length]
+        }));
+      }
+      privateUnlocked = Boolean(appState.privateMode === "plain" || (!appState.privateMode && !hasEncryptedPrivate));
+      privateValuesResolved = true;
       savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
       savedPrivateFingerprint = privateFingerprint();
-    } else {
       if (!savedMaskedPublicMarkdown) {
         applySample(demoSamples[0], { preservePrivateLock: true });
         savedMaskedPublicMarkdown = publicDraftMarkdown;
       }
-      savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
-      savedPrivateFingerprint = privateFingerprint();
-      privateUnlocked = true;
-      privateValuesResolved = true;
     }
 
     publicDraftMarkdown = savedMaskedPublicMarkdown || publicDraftMarkdown || "";
@@ -1217,6 +1380,7 @@ async function loadSavedData() {
     savedMaskedPublicMarkdown = publicDraftMarkdown;
     savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
     savedPrivateFingerprint = privateFingerprint();
+    privateMode = "plain";
     privateUnlocked = true;
     privateValuesResolved = true;
     setStatus("保存服务未启动，当前仅可预览", "warning");
@@ -1226,6 +1390,13 @@ async function loadSavedData() {
   renderAiEditor();
   generateResumePreview();
   renderStatus();
+
+  if (privateMode === "encrypted" && !privateUnlocked) {
+    const rememberedPassword = getRememberedUnlockPassword();
+    if (rememberedPassword) {
+      await unlockPrivateData(rememberedPassword, { silent: true });
+    }
+  }
 }
 
 function bytesToBase64(bytes) {
@@ -1290,8 +1461,53 @@ async function decryptPrivateFields(password, payload) {
   return JSON.parse(new TextDecoder().decode(plaintext)).fields || [];
 }
 
-async function savePrivateData() {
-  const password = privateKeyInput.value;
+function buildPrivateFieldsSnapshot() {
+  return fields.map((field, index) => ({
+    key: field.key,
+    type: normalizeFieldType(field.type),
+    value: field.value,
+    color: field.color || colors[index % colors.length]
+  }));
+}
+
+async function savePlainPrivateData() {
+  const plainFields = buildPrivateFieldsSnapshot();
+  const response = await fetch("/api/private", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mode: "plain",
+      fields: plainFields,
+      metadata: {
+        fieldKeys: plainFields.map(field => field.key),
+        fieldTypes: plainFields.map(field => field.type),
+        fieldCount: plainFields.length
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error("隐私信息保存失败");
+  }
+
+  appState = await response.json();
+  privateMode = "plain";
+  hasEncryptedPrivate = false;
+  privateUnlocked = true;
+  privateValuesResolved = true;
+  savedPrivateFingerprint = privateFingerprint();
+  savedPrivateKeys = plainFields.map(field => field.key);
+  savedPrivateTypes = plainFields.map(field => field.type);
+  savedPrivateValues = Object.fromEntries(plainFields.map(field => [field.key, field.value]));
+  sessionStorage.removeItem(rememberedUnlockPasswordKey);
+  if (rememberUnlockCheckbox) {
+    rememberUnlockCheckbox.checked = false;
+  }
+  return true;
+}
+
+async function savePrivateData(password = privateKeyInput.value || getRememberedUnlockPassword(), options = {}) {
+  const lockAfter = Boolean(options.lockAfter);
   if (!password) {
     setStatus("请先输入密钥后保存隐私信息", "warning");
     return false;
@@ -1316,39 +1532,75 @@ async function savePrivateData() {
   }
 
   appState = await response.json();
+  privateMode = "encrypted";
   hasEncryptedPrivate = true;
-  privateUnlocked = true;
+  privateUnlocked = !lockAfter;
   privateValuesResolved = true;
   savedPrivateFingerprint = privateFingerprint();
   savedPrivateKeys = fields.map(field => field.key);
   savedPrivateTypes = fields.map(field => normalizeFieldType(field.type));
   savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
-  await saveMaskedPublicData();
+  updateRememberedUnlockPassword(password);
+  try {
+    await saveMaskedPublicData();
+  } catch {
+    setStatus(
+      lockAfter
+        ? "隐私信息已保存，AI读取的内容未同步保存"
+        : "隐私信息已保存，AI读取的内容未同步保存",
+      "warning"
+    );
+  }
   renderStatus();
   return true;
 }
 
 async function clearPrivateData() {
-  if (!window.confirm("将清空当前隐私值并保留字段名，继续吗？")) {
-    return;
-  }
-
+  const previousFields = fields.map(field => ({
+    ...field
+  }));
+  setStatus("正在清空隐私值并切换到无需密钥状态...", "info");
   fields = fields.map(field => ({
     ...field,
     value: ""
   }));
-  privateUnlocked = true;
-  privateValuesResolved = false;
-  renderFields();
-  renderAiEditor();
-  generateResumePreview();
-  renderStatus();
-  setStatus("隐私值已清空，可重新填写", "ok");
+  try {
+    await savePlainPrivateData();
+    renderFields();
+    renderAiEditor();
+    generateResumePreview();
+    renderStatus();
+    setPrivateUnlockPopoverOpen(false);
+    setStatus("隐私值已清空，已切换到无需密钥状态", "ok");
+  } catch {
+    fields = previousFields;
+    renderFields();
+    renderAiEditor();
+    generateResumePreview();
+    renderStatus();
+    setStatus("清空失败，请确认本地服务已启动", "warning");
+  }
 }
 
-async function unlockPrivateData() {
+async function unlockPrivateData(password = privateKeyInput.value, options = {}) {
+  const silent = Boolean(options.silent);
+  if (privateMode === "plain") {
+    privateUnlocked = !privateUnlocked;
+    privateValuesResolved = true;
+    setPrivateUnlockPopoverOpen(false);
+    renderFields();
+    renderAiEditor();
+    generateResumePreview();
+    renderStatus();
+    if (!silent) {
+      setStatus(privateUnlocked ? "隐私信息已解锁" : "隐私信息已锁定", "ok");
+    }
+    return true;
+  }
+
   if (privateUnlocked) {
     privateUnlocked = false;
+    setPrivateUnlockPopoverOpen(false);
     renderFields();
     renderAiEditor();
     generateResumePreview();
@@ -1357,9 +1609,10 @@ async function unlockPrivateData() {
     return;
   }
 
-  const password = privateKeyInput.value;
   if (!password) {
-    setStatus("请先输入密钥", "warning");
+    if (!silent) {
+      setStatus("请先输入密钥", "warning");
+    }
     return;
   }
 
@@ -1381,12 +1634,57 @@ async function unlockPrivateData() {
     }
     privateUnlocked = true;
     privateValuesResolved = true;
+    setPrivateUnlockPopoverOpen(false);
+    updateRememberedUnlockPassword(password);
     renderFields();
     renderAiEditor();
     generateResumePreview();
     renderStatus();
-    setStatus("隐私信息已解锁", "ok");
+    if (!silent) {
+      setStatus("隐私信息已解锁", "ok");
+    }
+    return true;
   } catch {
+    sessionStorage.removeItem(rememberedUnlockPasswordKey);
+    if (!silent) {
+      setStatus("密钥不正确，无法解锁隐私信息", "warning");
+    }
+    return false;
+  }
+}
+
+async function confirmPrivateCredentialAction() {
+  const password = privateKeyInput.value || getRememberedUnlockPassword();
+  if (!password) {
+    setStatus(
+      privateUnlockAction === "save"
+        ? "请输入密钥后保存"
+        : "请先输入密钥",
+      "warning"
+    );
+    privateKeyInput?.focus();
+    return;
+  }
+
+  if (privateUnlockAction === "save") {
+    setStatus("正在保存隐私信息...", "info");
+    try {
+      const saved = await savePrivateData(password);
+      if (saved) {
+        setPrivateUnlockPopoverOpen(false);
+      }
+    } catch {
+      setStatus("隐私信息保存失败，请确认本地服务已启动", "warning");
+    }
+    return;
+  }
+
+  const unlocked = await unlockPrivateData(password, { silent: true });
+  if (unlocked) {
+    setPrivateUnlockPopoverOpen(false);
+    setStatus("隐私信息已解锁", "ok");
+  } else {
+    sessionStorage.removeItem(rememberedUnlockPasswordKey);
     setStatus("密钥不正确，无法解锁隐私信息", "warning");
   }
 }
@@ -1394,7 +1692,7 @@ async function unlockPrivateData() {
 async function saveAllData() {
   const publicChanged = publicDirty();
   const privateChanged = privateDirty();
-  if (!publicChanged && !privateChanged) {
+  if (!publicChanged && !privateChanged && privateMode !== "plain") {
     setStatus("没有需要保存的内容", "info");
     return;
   }
@@ -1414,12 +1712,25 @@ async function saveAllData() {
     }
   }
 
-  if (privateChanged) {
-    if (!privateKeyInput.value) {
+  if (privateMode === "plain") {
+    const privatePassword = getAvailablePrivatePassword();
+    if (!privatePassword) {
       privateNeedsKey = true;
     } else {
       try {
-        const saved = await savePrivateData();
+        const saved = await savePrivateData(privatePassword);
+        privateSaved = Boolean(saved);
+      } catch {
+        privateFailed = true;
+      }
+    }
+  } else if (privateChanged) {
+    const privatePassword = getAvailablePrivatePassword();
+    if (!privatePassword) {
+      privateNeedsKey = true;
+    } else {
+      try {
+        const saved = await savePrivateData(privatePassword);
         privateSaved = Boolean(saved);
       } catch {
         privateFailed = true;
@@ -1433,7 +1744,8 @@ async function saveAllData() {
   }
 
   if (publicSaved && privateNeedsKey) {
-    setStatus("AI读取的内容已保存，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
+    setStatus("AI读取的内容已保存，隐私信息未保存，请输入密钥后继续保存", "warning");
+    openPrivateCredentialPrompt("save", saveAllButton);
     return;
   }
 
@@ -1453,7 +1765,8 @@ async function saveAllData() {
   }
 
   if (!publicChanged && privateNeedsKey) {
-    setStatus("请先输入密钥后保存隐私信息", "warning");
+    setStatus("隐私信息需要密钥，请输入后继续保存", "warning");
+    openPrivateCredentialPrompt("save", saveAllButton);
     return;
   }
 
@@ -1536,8 +1849,36 @@ printButton.addEventListener("click", () => {
   generateResumePreview();
   window.print();
 });
-unlockPrivateButton.addEventListener("click", unlockPrivateData);
-saveAllButton.addEventListener("click", saveAllData);
+unlockPrivateButton.addEventListener("click", () => {
+  if (privateMode === "plain") {
+    unlockPrivateData("");
+    return;
+  }
+  if (privateUnlocked) {
+    const password = getAvailablePrivatePassword();
+    if (!password && !hasEncryptedPrivate) {
+      openPrivateCredentialPrompt("unlock");
+      return;
+    }
+    unlockPrivateData(password || privateKeyInput.value || getRememberedUnlockPassword());
+    return;
+  }
+  setPrivateUnlockPopoverMode("unlock");
+  setPrivateUnlockPopoverOpen(true);
+  renderStatus();
+});
+unlockPrivateConfirmButton.addEventListener("click", confirmPrivateCredentialAction);
+rememberUnlockCheckbox?.addEventListener("change", () => {
+  if (!rememberUnlockCheckbox.checked) {
+    sessionStorage.removeItem(rememberedUnlockPasswordKey);
+    return;
+  }
+  updateRememberedUnlockPassword(privateKeyInput.value);
+});
+saveAllButton.addEventListener("click", event => {
+  event.stopPropagation();
+  saveAllData();
+});
 clearPrivateButton.addEventListener("click", clearPrivateData);
 clearPrivateButton.addEventListener("keydown", event => {
   if (event.key === "Enter" || event.key === " ") {
@@ -1546,6 +1887,15 @@ clearPrivateButton.addEventListener("keydown", event => {
   }
 });
 privateKeyInput.addEventListener("input", () => renderStatus());
+privateKeyInput.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    confirmPrivateCredentialAction();
+  } else if (event.key === "Escape") {
+    setPrivateUnlockPopoverOpen(false);
+    renderStatus();
+  }
+});
 maskedPreview.addEventListener("input", event => {
   publicDraftMarkdown = normalizeAiText(serializeAiEditor());
   updateOutput();
@@ -1574,3 +1924,18 @@ renderAiEditor();
 generateResumePreview();
 renderStatus();
 loadSavedData();
+
+document.addEventListener("click", event => {
+  if (!privateUnlockPopoverOpen) {
+    return;
+  }
+  const target = event.target;
+  if (!(target instanceof Node)) {
+    return;
+  }
+  if (privateUnlockPopover?.contains(target) || unlockPrivateButton.contains(target)) {
+    return;
+  }
+  setPrivateUnlockPopoverOpen(false);
+  renderStatus();
+});

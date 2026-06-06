@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>简历 Gen</title>
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="/app/styles.css">
   </head>
   <body>
     <main class="app-shell">
@@ -41,13 +41,20 @@
               <div class="title-with-status">
                 <h2>隐私信息</h2>
                 <div class="status-inline" id="privateStatusBar"></div>
-                <div class="header-actions privacy-inline-actions">
-                  <input class="key-input" id="privateKey" type="password" autocomplete="off" placeholder="隐私密钥">
+                <div class="private-unlock-group">
                   <button class="text-button" id="unlockPrivate">解锁</button>
-                  <button class="info-button" id="privateInfo" type="button" aria-label="说明">
-                    ?
-                    <span class="info-tooltip">忘记密钥？<span class="inline-action" id="clearPrivate" role="button" tabindex="0">点击清空</span> 隐私信息重新填写。清空后只会清空值，不清空 key，并会切换到解锁状态。</span>
-                  </button>
+                  <div class="private-unlock-popover" id="privateUnlockPopover" hidden>
+                    <div class="private-unlock-note" id="privateUnlockNote"></div>
+                    <input class="key-input" id="privateKey" type="password" autocomplete="off" placeholder="隐私密钥">
+                    <button class="text-button" id="unlockPrivateConfirm">解锁</button>
+                    <label class="private-unlock-remember">
+                      <input id="rememberUnlock" type="checkbox">
+                      <span>记住密钥</span>
+                    </label>
+                    <div class="private-unlock-hint">
+                      忘记密钥？<button class="inline-action" id="clearPrivate" type="button">点击清空</button> 隐私信息重新填写。清空后只会清空值，不清空 key，并会切换到解锁状态。
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="header-actions">
@@ -81,7 +88,7 @@
       </section>
     </main>
 
-    <script src="./tiptap-editor.bundle.js"></script>
-    <script src="./script.js"></script>
+    <script src="/app/tiptap-editor.bundle.js"></script>
+    <script src="/app/script.js"></script>
   </body>
 </html>
