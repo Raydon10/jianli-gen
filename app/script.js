@@ -1,138 +1,28 @@
-const colors = [
-  "#d1495b",
-  "#0077b6",
-  "#2a9d8f",
-  "#f77f00",
-  "#7b2cbf",
-  "#457b9d",
-  "#bc6c25",
-  "#6a994e",
-  "#d00000",
-  "#5a189a"
-];
-
-const imageIconSvg = `<svg viewBox="0 0 24 24" aria-hidden="true">
-  <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" />
-  <path d="M7.2 15.2 10 12.4l2.2 2.2 2.2-2.8 2.6 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="9" cy="8.2" r="1.2" fill="currentColor" />
-</svg>`;
-
-const demoFields = [
-  { key: "姓名", value: "张明远" },
-  { key: "年龄", value: "29" },
-  { key: "手机", value: "13812345678" },
-  { key: "邮箱", value: "mingyuan.zhang@example.com" },
-  { key: "城市", value: "上海" },
-  { key: "公司", value: "云启科技" }
-];
-
-const demoMarkdown = `# 张明远
-
-上海 | 13812345678 | mingyuan.zhang@example.com
-
-## 求职目标
-
-后端工程师，期望加入重视工程质量、系统稳定性和产品迭代效率的团队。
-
-## 个人总结
-
-29 岁，5 年后端开发经验，目前在云启科技负责订单系统和数据同步服务。熟悉 Java、Spring Boot、MySQL、Redis 和消息队列，关注高并发场景下的可观测性和故障恢复。
-
-## 工作经历
-
-### 云启科技｜后端工程师｜2021.06 - 至今
-
-- 负责订单核心链路改造，将高峰期接口 P95 延迟从 680ms 降至 210ms。
-- 设计库存同步任务的幂等机制，减少重复扣减和人工对账成本。
-- 推动服务日志结构化，提升线上问题定位效率。
-
-### 星河软件｜Java 开发工程师｜2019.07 - 2021.05
-
-- 参与 CRM 客户画像模块开发，支持销售团队按行业、规模和活跃度筛选客户。
-- 编写接口自动化测试，覆盖主要客户管理流程。
-
-## 技能
-
-- Java / Spring Boot / MySQL / Redis / Kafka
-- REST API 设计、微服务治理、性能优化
-- Git、Docker、Linux 基础运维`;
-
-const demoSamples = [
-  {
-    publicMarkdown: demoMarkdown,
-    fields: demoFields
-  },
-  {
-    publicMarkdown: `# 李薇
-
-杭州 | 18600001111 | liwei@example.com
-
-## 求职目标
-
-前端工程师，关注设计实现一致性、性能和可维护性。
-
-## 个人总结
-
-6 年前端开发经验，熟悉组件化架构、设计系统和复杂表单交互。
-
-## 工作经历
-
-### 星图科技｜前端工程师｜2020.03 - 至今
-
-- 搭建统一组件库，覆盖业务后台核心交互。
-- 优化首屏加载和表单响应速度。
-- 推动设计稿交付标准化。
-
-## 技能
-
-- TypeScript / React / CSS / Node.js
-- 组件设计、性能优化、工程化`,
-    fields: [
-      { key: "姓名", value: "李薇" },
-      { key: "年龄", value: "31" },
-      { key: "手机", value: "18600001111" },
-      { key: "邮箱", value: "liwei@example.com" },
-      { key: "城市", value: "杭州" },
-      { key: "公司", value: "星图科技" }
-    ]
-  },
-  {
-    publicMarkdown: `# 王浩
-
-深圳 | 13900002222 | wanghao@example.com
-
-## 求职目标
-
-全栈工程师，偏向业务交付与系统整合。
-
-## 个人总结
-
-8 年开发经验，熟悉前后端联调、接口设计和多角色后台系统。
-
-## 工作经历
-
-### 云脉信息｜全栈工程师｜2018.09 - 至今
-
-- 负责客户运营平台和审批流系统。
-- 协调前后端接口协议与上线节奏。
-- 支持核心页面性能优化与问题排查。
-
-## 技能
-
-- JavaScript / TypeScript / Vue / Node.js / PostgreSQL
-- 接口设计、业务建模、系统联调`,
-    fields: [
-      { key: "姓名", value: "王浩" },
-      { key: "年龄", value: "34" },
-      { key: "手机", value: "13900002222" },
-      { key: "邮箱", value: "wanghao@example.com" },
-      { key: "城市", value: "深圳" },
-      { key: "公司", value: "云脉信息" }
-    ]
-  }
-];
-
-const defaultPrivateKeys = demoSamples[0].fields.map(field => field.key);
+import {
+  colors,
+  demoFields,
+  demoSamples,
+  defaultPrivateKeys,
+  imageIconSvg
+} from "./lib/data.js";
+import {
+  escapeHtml,
+  htmlToText,
+  escapeRegExp,
+  normalizeAiText,
+  getSharedTextBounds,
+  isSpanSaved,
+  getTokenLabel,
+  fileToDataUrl,
+  maskText,
+  replaceTokenKey,
+  unmaskText,
+  getPublicBullets
+} from "./lib/text.js";
+import {
+  encryptPrivateFields,
+  decryptPrivateFields
+} from "./lib/crypto.js";
 
 let fields = demoFields.map((field, index) => ({
   ...field,
@@ -184,100 +74,12 @@ let privateUnlockAction = "unlock";
 let privateUnlockPopoverAnchor = null;
 const rememberedUnlockPasswordKey = "jianli-gen.remembered-unlock-password";
 
+
 if (maskedPreview) {
   maskedPreview.innerHTML = "";
 }
 if (resumePreview) {
   resumePreview.innerHTML = "";
-}
-
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function htmlToText(value) {
-  return value
-    .replaceAll("&nbsp;", " ")
-    .replace(/<div><br><\/div>/g, "\n")
-    .replace(/<div>/g, "\n")
-    .replace(/<\/div>/g, "")
-    .replace(/<br\s*\/?>/g, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#039;", "'")
-    .replaceAll("&amp;", "&");
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeAiText(text) {
-  return (text || "").replace(/\r\n?/g, "\n");
-}
-
-function getSharedTextBounds(current, saved) {
-  const currentText = normalizeAiText(current || "");
-  const savedText = normalizeAiText(saved || "");
-
-  if (!savedText) {
-    return {
-      prefix: 0,
-      suffix: 0,
-      currentLength: currentText.length,
-      savedLength: 0
-    };
-  }
-
-  const limit = Math.min(currentText.length, savedText.length);
-  let prefix = 0;
-  while (prefix < limit && currentText[prefix] === savedText[prefix]) {
-    prefix += 1;
-  }
-
-  let suffix = 0;
-  const currentRemain = currentText.length - prefix;
-  const savedRemain = savedText.length - prefix;
-  while (
-    suffix < currentRemain &&
-    suffix < savedRemain &&
-    currentText[currentText.length - 1 - suffix] === savedText[savedText.length - 1 - suffix]
-  ) {
-    suffix += 1;
-  }
-
-  return {
-    prefix,
-    suffix,
-    currentLength: currentText.length,
-    savedLength: savedText.length
-  };
-}
-
-function isSpanSaved(start, end, bounds, currentText, savedText) {
-  if (!savedText) {
-    return false;
-  }
-
-  if (normalizeAiText(currentText) === normalizeAiText(savedText)) {
-    return true;
-  }
-
-  const savedSuffixStart = bounds.currentLength - bounds.suffix;
-  return end <= bounds.prefix || start >= savedSuffixStart;
-}
-
-function getActiveFields() {
-  return fields
-    .filter(field => field.key && field.value && field.type !== "photo")
-    .sort((a, b) => b.value.length - a.value.length);
 }
 
 function getTokenMappings() {
@@ -345,72 +147,6 @@ function createUniqueFieldKey(base) {
   return `${base}${index}`;
 }
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("图片读取失败"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function getTokenLabel(key) {
-  return `{{${key}}}`;
-}
-
-function normalizePlainTextSegment(segment, offset = 0, caretIndex = null) {
-  const active = getActiveFields();
-  let output = "";
-  let cursor = 0;
-  let nextCaret = caretIndex;
-  let caretLocked = false;
-
-  while (cursor < segment.length) {
-    let bestField = null;
-    let bestIndex = -1;
-
-    for (const field of active) {
-      const index = segment.indexOf(field.value, cursor);
-      if (index === -1) {
-        continue;
-      }
-      if (bestIndex === -1 || index < bestIndex || (index === bestIndex && field.value.length > (bestField?.value?.length || 0))) {
-        bestField = field;
-        bestIndex = index;
-      }
-    }
-
-    if (!bestField) {
-      output += segment.slice(cursor);
-      break;
-    }
-
-    if (bestIndex > cursor) {
-      output += segment.slice(cursor, bestIndex);
-    }
-
-    const token = getTokenLabel(bestField.key);
-    const matchStart = offset + bestIndex;
-    const matchEnd = matchStart + bestField.value.length;
-    if (caretIndex != null && !caretLocked) {
-      if (caretIndex > matchStart && caretIndex < matchEnd) {
-        nextCaret = output.length + token.length;
-        caretLocked = true;
-      } else if (caretIndex >= matchEnd) {
-        nextCaret += token.length - bestField.value.length;
-      }
-    }
-
-    output += token;
-    cursor = bestIndex + bestField.value.length;
-  }
-
-  return {
-    text: output,
-    caretIndex: nextCaret
-  };
-}
-
 function privateFingerprint() {
   return JSON.stringify(fields.map(({ key, type, value, color }) => ({
     key,
@@ -438,10 +174,24 @@ function cloneFields(sourceFields) {
   }));
 }
 
+function buildTokenMappings(sourceFields) {
+  return sourceFields
+    .filter(field => field.key && field.value && field.type !== "photo")
+    .sort((a, b) => b.value.length - a.value.length)
+    .map(field => ({
+      key: field.key,
+      value: field.value
+    }));
+}
+
+function getFieldColorMap(sourceFields = fields) {
+  return new Map(sourceFields.map(field => [field.key, field.color || "#8892a0"]));
+}
+
 function applySample(sample, options = {}) {
   const { preservePrivateLock = false } = options;
   fields = cloneFields(sample.fields);
-  publicDraftMarkdown = maskText(sample.publicMarkdown);
+  publicDraftMarkdown = maskText(sample.publicMarkdown, buildTokenMappings(sample.fields), getFieldColorMap(sample.fields));
   savedMaskedPublicMarkdown = publicDraftMarkdown;
   savedPrivateValues = Object.fromEntries(sample.fields.map(field => [field.key, field.value]));
   savedPrivateTypes = sample.fields.map(field => normalizeFieldType(field.type));
@@ -454,7 +204,7 @@ function applySample(sample, options = {}) {
 }
 
 function publicDirty() {
-  return maskText(publicDraftMarkdown) !== savedMaskedPublicMarkdown;
+  return maskText(publicDraftMarkdown, getTokenMappings(), getFieldColorMap()) !== savedMaskedPublicMarkdown;
 }
 
 function privateDirty() {
@@ -788,40 +538,6 @@ function moveField(fromIndex, toIndex) {
   renderFields();
   updateOutput();
   renderStatus();
-}
-
-function maskText(text, htmlMode = false) {
-  let output = escapeHtml(text);
-
-  getTokenMappings().forEach(mapping => {
-    const token = getTokenLabel(mapping.key);
-    const replacement = htmlMode
-      ? `<span class="token" style="--token-color:${fields.find(field => field.key === mapping.key)?.color || "#8892a0"}">${escapeHtml(token)}</span>`
-      : token;
-    output = output.replace(new RegExp(escapeRegExp(escapeHtml(mapping.value)), "g"), replacement);
-  });
-
-  return output;
-}
-
-function replaceTokenKey(text, oldKey, newKey) {
-  if (!oldKey || oldKey === newKey) {
-    return text;
-  }
-
-  return text.replace(new RegExp(escapeRegExp(getTokenLabel(oldKey)), "g"), getTokenLabel(newKey));
-}
-
-function unmaskText(text) {
-  let output = text;
-
-  fields
-    .filter(field => field.key && field.value && field.type !== "photo")
-    .forEach(field => {
-      output = output.replace(new RegExp(escapeRegExp(getTokenLabel(field.key)), "g"), field.value);
-    });
-
-  return output;
 }
 
 function updateOutput() {
@@ -1217,17 +933,10 @@ function readPrivateValue(key, fallback = "") {
   return fields.find(field => field.key === key)?.value || fallback;
 }
 
-function getPublicBullets(text = "") {
-  return text
-    .split("\n")
-    .map(line => line.trim())
-    .filter(line => /^[-*]\s+/.test(line))
-    .slice(0, 6)
-    .map(line => line.replace(/^[-*]\s+/, ""));
-}
-
 function generateResumePreview() {
-  const previewText = privateUnlocked && privateValuesResolved ? unmaskText(publicDraftMarkdown) : maskText(publicDraftMarkdown);
+  const previewText = privateUnlocked && privateValuesResolved
+    ? unmaskText(publicDraftMarkdown, fields)
+    : maskText(publicDraftMarkdown, getTokenMappings(), getFieldColorMap());
   const bullets = getPublicBullets(previewText || savedMaskedPublicMarkdown || "");
   const name = readPrivateValue("姓名", "候选人");
   const city = readPrivateValue("城市", "城市");
@@ -1399,68 +1108,6 @@ async function loadSavedData() {
   }
 }
 
-function bytesToBase64(bytes) {
-  const chunkSize = 0x8000;
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let binary = "";
-
-  for (let index = 0; index < view.length; index += chunkSize) {
-    const chunk = view.subarray(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-
-  return btoa(binary);
-}
-
-function base64ToBytes(value) {
-  return Uint8Array.from(atob(value), char => char.charCodeAt(0));
-}
-
-async function deriveKey(password, salt) {
-  const material = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
-
-  return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
-    material,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-}
-
-async function encryptPrivateFields(password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(password, salt);
-  const plaintext = new TextEncoder().encode(JSON.stringify({ fields }));
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
-
-  return {
-    version: 1,
-    algorithm: "AES-GCM",
-    kdf: "PBKDF2-SHA256",
-    iterations: 250000,
-    salt: bytesToBase64(salt),
-    iv: bytesToBase64(iv),
-    ciphertext: bytesToBase64(ciphertext)
-  };
-}
-
-async function decryptPrivateFields(password, payload) {
-  const salt = base64ToBytes(payload.salt);
-  const iv = base64ToBytes(payload.iv);
-  const key = await deriveKey(password, salt);
-  const ciphertext = base64ToBytes(payload.ciphertext);
-  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
-  return JSON.parse(new TextDecoder().decode(plaintext)).fields || [];
-}
-
 function buildPrivateFieldsSnapshot() {
   return fields.map((field, index) => ({
     key: field.key,
@@ -1513,7 +1160,7 @@ async function savePrivateData(password = privateKeyInput.value || getRemembered
     return false;
   }
 
-  const encrypted = await encryptPrivateFields(password);
+  const encrypted = await encryptPrivateFields(fields, password);
   const response = await fetch("/api/private", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -1789,7 +1436,7 @@ async function saveAllData() {
 }
 
 async function saveMaskedPublicData() {
-  const payload = maskText(publicDraftMarkdown);
+  const payload = maskText(publicDraftMarkdown, getTokenMappings(), getFieldColorMap());
   if (!payload) {
     return;
   }
