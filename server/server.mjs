@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const dataDir = join(root, "resume-data");
+const templateDir = join(dataDir, "简历模版");
 const publicMaskedPath = join(dataDir, "ai-input.md");
 const legacyAiInputPath = join(dataDir, "ai.md");
 const legacyPublicMaskedPath = join(dataDir, "public.masked.md");
@@ -106,6 +107,35 @@ async function handleApi(request, response) {
       publicMaskedHash: hash(body)
     });
     send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
+    return true;
+  }
+
+  if (request.url === "/api/resume-templates" && request.method === "GET") {
+    await mkdir(templateDir, { recursive: true });
+    const files = (await readdir(templateDir))
+      .filter(file => file.endsWith(".html"))
+      .sort();
+    const templates = files.map(file => ({
+      id: file.replace(/\.html$/, ""),
+      name: file.replace(/\.html$/, "").replaceAll("-", " "),
+      file
+    }));
+    send(response, 200, JSON.stringify({ templates }), "application/json; charset=utf-8");
+    return true;
+  }
+
+  if (request.url.startsWith("/api/resume-templates/") && request.method === "GET") {
+    const id = decodeURIComponent(request.url.slice("/api/resume-templates/".length));
+    if (!/^[\p{L}\p{N}_-]+$/u.test(id)) {
+      send(response, 400, "Invalid template id");
+      return true;
+    }
+    const filePath = join(templateDir, `${id}.html`);
+    if (!filePath.startsWith(templateDir) || !(await exists(filePath))) {
+      send(response, 404, "Not found");
+      return true;
+    }
+    send(response, 200, await readFile(filePath, "utf8"), "text/html; charset=utf-8");
     return true;
   }
 

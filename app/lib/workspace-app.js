@@ -11,6 +11,7 @@ export function initJianliApp() {
     fieldList: document.querySelector("#fieldList"),
     maskedPreview: document.querySelector("#maskedPreview"),
     resumePreview: document.querySelector("#resumePreview"),
+    templateList: document.querySelector("#templateList"),
     addFieldButton: document.querySelector("#addField"),
     printButton: document.querySelector("#printResume"),
     regeneratePublicButton: document.querySelector("#regeneratePublic"),
@@ -103,6 +104,7 @@ export function initJianliApp() {
       api.scheduleAiNormalization();
     }
   });
+  window.addEventListener("resize", () => api.updateResumePreviewScale?.());
   state.maskedPreview.addEventListener("focusin", () => {
     state.aiEditorFocused = true;
   });
@@ -137,5 +139,6 @@ export function initJianliApp() {
   api.renderAiEditor();
   api.generateResumePreview();
   api.renderStatus();
+  api.loadResumeTemplates?.();
   api.loadSavedData();
 }

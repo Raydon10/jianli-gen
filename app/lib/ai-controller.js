@@ -26,6 +26,87 @@ function normalizePlainTextSegment(text, caretIndex = null) {
 }
 
 export function setupAiController(state, api) {
+  function prepareResumePreviewHtml(html) {
+    const previewStyle = `<style>
+      @page { size: A4; margin: 0; }
+      * { box-sizing: border-box !important; }
+      html, body {
+        width: 794px !important;
+        min-width: 794px !important;
+        max-width: 794px !important;
+        min-height: 1123px !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        background: #fff !important;
+      }
+      .resume {
+        width: 794px !important;
+        min-width: 794px !important;
+        max-width: 794px !important;
+        min-height: 1123px !important;
+        margin: 0 !important;
+      }
+    </style>`;
+    if (/<\/head>/i.test(html)) {
+      return html.replace(/<\/head>/i, `${previewStyle}</head>`);
+    }
+    return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${previewStyle}</head><body>${html}</body></html>`;
+  }
+
+  function renderResumeFrame(html, title = "简历预览") {
+    if (!state.resumePreview) {
+      return;
+    }
+    const previewHtml = prepareResumePreviewHtml(html);
+    state.currentResumeHtml = previewHtml;
+    state.resumePreview.innerHTML = `
+      <div class="resume-paper">
+        <iframe class="resume-frame" title="${escapeHtml(title)}" sandbox srcdoc="${escapeHtml(previewHtml)}"></iframe>
+      </div>
+    `;
+    api.updateResumePreviewScale?.();
+  }
+
+  function buildDefaultResumeHtml(body) {
+    return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #20242a; font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .resume { width: 794px; min-height: 1123px; padding: 42px 48px; background: #fff; line-height: 1.5; }
+    .resume-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 22px; }
+    .resume-name { font-size: 28px; font-weight: 800; }
+    .resume-title { margin-top: 5px; color: #4b5563; font-size: 14px; }
+    .resume-contact { color: #4b5563; font-size: 12px; line-height: 1.65; text-align: right; }
+    .entry-heading { display: flex; justify-content: space-between; gap: 16px; margin: 12px 0 5px; }
+    .entry-main { font-weight: 760; }
+    .entry-meta { color: #5f6875; font-size: 12px; white-space: nowrap; }
+    h1 { font-size: 28px; margin-bottom: 4px; }
+    h2 { margin: 22px 0 8px; padding-bottom: 5px; border-bottom: 1px solid #b8c0cc; font-size: 16px; }
+    h3 { margin: 14px 0 6px; font-size: 14px; }
+    p { margin: 7px 0; }
+    ul { margin: 7px 0 12px 20px; padding: 0; }
+    li { margin: 4px 0; }
+    strong { font-weight: 750; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <article class="resume">${body}</article>
+</body>
+</html>`;
+  }
+
+  function clearTemplateSelection() {
+    state.selectedTemplateId = "";
+    state.templateList?.querySelectorAll(".template-card").forEach(card => {
+      card.classList.remove("is-selected");
+    });
+  }
+
   function serializedNodeLength(node) {
     if (!node) {
       return 0;
@@ -415,11 +496,22 @@ export function setupAiController(state, api) {
     api.generateResumePreview();
   };
 
+  api.updateResumePreviewScale = function updateResumePreviewScale() {
+    const paper = state.resumePreview?.querySelector(".resume-paper");
+    if (!paper || !state.resumePreview) {
+      return;
+    }
+    const availableWidth = Math.max(0, state.resumePreview.clientWidth - 40);
+    const scale = Math.min(1, availableWidth / 794);
+    paper.style.setProperty("--paper-scale", String(scale || 1));
+  };
+
   api.readPrivateValue = function readPrivateValue(key, fallback = "") {
     return state.fields.find(field => field.key === key)?.value || fallback;
   };
 
   api.generateResumePreview = function generateResumePreview() {
+    clearTemplateSelection();
     const previewText = state.aiEditor
       ? state.aiEditor.serializeResolved?.(state.privateUnlocked && state.privateValuesResolved) || state.publicDraftMarkdown
       : state.privateUnlocked && state.privateValuesResolved
@@ -433,7 +525,7 @@ export function setupAiController(state, api) {
     const company = api.readPrivateValue("公司", "公司");
     const bulletHtml = bullets.map(item => `<li>${escapeHtml(item)}</li>`).join("");
 
-    state.resumePreview.innerHTML = `
+    const body = `
       <header class="resume-header">
         <div>
           <div class="resume-name">${escapeHtml(name)}</div>
@@ -468,5 +560,65 @@ export function setupAiController(state, api) {
         <p>Java / Spring Boot / MySQL / Redis / Kafka / REST API / Docker / Linux</p>
       </section>
     `;
+    renderResumeFrame(buildDefaultResumeHtml(body), "简历预览");
+  };
+
+  api.renderTemplateList = function renderTemplateList(templates = []) {
+    if (!state.templateList) {
+      return;
+    }
+    if (!templates.length) {
+      state.templateList.innerHTML = `<div class="empty-hint">暂无简历模版</div>`;
+      return;
+    }
+    state.templateList.innerHTML = templates.map(template => `
+      <button class="template-card" type="button" data-template-id="${escapeHtml(template.id)}">
+        <span class="template-name">${escapeHtml(template.name)}</span>
+      </button>
+    `).join("");
+    state.templateList.querySelectorAll("[data-template-id]").forEach(button => {
+      button.addEventListener("click", () => api.previewResumeTemplate(button.dataset.templateId || ""));
+    });
+  };
+
+  api.loadResumeTemplates = async function loadResumeTemplates() {
+    if (!state.templateList) {
+      return;
+    }
+    try {
+      const response = await fetch("/api/resume-templates");
+      if (!response.ok) {
+        throw new Error("简历模版读取失败");
+      }
+      const payload = await response.json();
+      api.renderTemplateList(Array.isArray(payload.templates) ? payload.templates : []);
+    } catch {
+      state.templateList.innerHTML = `<div class="empty-hint">简历模版读取失败</div>`;
+    }
+  };
+
+  api.previewResumeTemplate = async function previewResumeTemplate(templateId) {
+    if (!templateId || !state.resumePreview) {
+      return;
+    }
+    if (state.selectedTemplateId === templateId) {
+      clearTemplateSelection();
+      api.generateResumePreview();
+      return;
+    }
+    try {
+      const response = await fetch(`/api/resume-templates/${encodeURIComponent(templateId)}`);
+      if (!response.ok) {
+        throw new Error("简历模版读取失败");
+      }
+      const html = await response.text();
+      state.selectedTemplateId = templateId;
+      renderResumeFrame(html, "简历模版预览");
+      state.templateList?.querySelectorAll(".template-card").forEach(card => {
+        card.classList.toggle("is-selected", card.dataset.templateId === templateId);
+      });
+    } catch {
+      api.setStatus("简历模版读取失败", "warning");
+    }
   };
 }
