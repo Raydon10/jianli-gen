@@ -166,6 +166,14 @@ h2 {
   min-width: 0;
 }
 
+.save-hint {
+  color: #8a5a00;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
 .inline-action {
   display: inline-flex;
   align-items: center;
@@ -248,14 +256,6 @@ h2 {
 
 .private-unlock-remember input {
   margin: 0;
-}
-
-.private-unlock-hint {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: left;
 }
 
 .key-input {

@@ -157,10 +157,6 @@ export function setupPrivacyController(state, api) {
         rememberRow.hidden = false;
       }
     }
-    const hint = document.querySelector(".private-unlock-hint");
-    if (hint) {
-      hint.hidden = action === "lock";
-    }
   };
 
   api.openPrivateCredentialPrompt = function openPrivateCredentialPrompt(action, anchor = null) {
@@ -226,6 +222,7 @@ export function setupPrivacyController(state, api) {
 
   api.renderStatus = function renderStatus() {
     const fieldValidation = api.getPrivateFieldValidation();
+    const publicHasUnsavedChanges = publicDirty(state);
     const privateHasIssue = privateDirty(state) || !fieldValidation.valid;
     const privateClass = privateHasIssue ? "warning" : "ok";
     const canEditPrivate = state.privateMode === "plain" || state.privateUnlocked;
@@ -248,6 +245,9 @@ export function setupPrivacyController(state, api) {
     if (state.saveAllButton) {
       state.saveAllButton.disabled = false;
     }
+    if (state.saveHint) {
+      state.saveHint.hidden = !(publicHasUnsavedChanges || privateHasIssue);
+    }
     if (state.privateUnlockPopover) {
       const showForPlainModeAction = state.privateMode === "plain" && state.privateUnlockAction === "save";
       state.privateUnlockPopover.hidden = !state.privateUnlockPopoverOpen || (state.privateUnlocked && !showForPlainModeAction);
@@ -258,7 +258,7 @@ export function setupPrivacyController(state, api) {
 
     if (state.aiStatusBar) {
       state.aiStatusBar.innerHTML = `
-        <span class="status-tag ${publicDirty(state) ? "warning" : "ok"}">${publicDirty(state) ? "未保存" : "已保存"}</span>
+        <span class="status-tag ${publicHasUnsavedChanges ? "warning" : "ok"}">${publicHasUnsavedChanges ? "未保存" : "已保存"}</span>
       `;
     }
 

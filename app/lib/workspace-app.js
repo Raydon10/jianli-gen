@@ -19,6 +19,7 @@ export function initJianliApp() {
     unlockPrivateConfirmButton: document.querySelector("#unlockPrivateConfirm"),
     rememberUnlockCheckbox: document.querySelector("#rememberUnlock"),
     saveAllButton: document.querySelector("#saveAll"),
+    saveHint: document.querySelector("#saveHint"),
     clearPrivateButton: document.querySelector("#clearPrivate"),
     addImageButton: document.querySelector("#addImage"),
     aiStatusBar: document.querySelector("#aiStatusBar"),
@@ -79,8 +80,8 @@ export function initJianliApp() {
     event.stopPropagation();
     api.saveAllData();
   });
-  state.clearPrivateButton.addEventListener("click", () => api.clearPrivateData());
-  state.clearPrivateButton.addEventListener("keydown", event => {
+  state.clearPrivateButton?.addEventListener("click", () => api.clearPrivateData());
+  state.clearPrivateButton?.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       api.clearPrivateData();
