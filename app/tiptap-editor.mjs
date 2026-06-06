@@ -721,7 +721,7 @@ export function createJianliEditor(root, options = {}) {
     ],
     editorProps: {
       attributes: {
-        class: "masked-preview ai-editor",
+        class: "ai-editor",
         spellcheck: "false"
       }
     },

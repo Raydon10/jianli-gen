@@ -19156,7 +19156,7 @@ img.ProseMirror-separator {
       ],
       editorProps: {
         attributes: {
-          class: "masked-preview ai-editor",
+          class: "ai-editor",
           spellcheck: "false"
         }
       },
