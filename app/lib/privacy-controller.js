@@ -7,9 +7,14 @@ import {
   encryptPrivateFields
 } from "./crypto.js";
 import {
+  extractTokenRefs
+} from "./text.js";
+import {
+  createFieldId,
   createEmptyPrivateFields,
   getPrivateFieldValidation,
   getFieldColorMap,
+  getTokenMappings,
   normalizeField,
   normalizeFieldType,
   privateDirty,
@@ -43,6 +48,42 @@ export function setupPrivacyController(state, api) {
       api.renderStatus();
       return false;
     }
+    return true;
+  };
+
+  api.syncMissingPrivateFieldsFromPublic = function syncMissingPrivateFieldsFromPublic() {
+    const existingIds = new Set(state.fields.map(field => field.id).filter(Boolean));
+    const existingKeys = new Set(state.fields.map(field => field.key).filter(Boolean));
+    const tokenRefs = extractTokenRefs(state.publicDraftMarkdown);
+    const missingRefs = tokenRefs.filter(ref => {
+      if (ref.id && existingIds.has(ref.id)) {
+        return false;
+      }
+      return !existingKeys.has(ref.key);
+    });
+
+    if (!missingRefs.length) {
+      return false;
+    }
+
+    missingRefs.forEach(ref => {
+      state.fields.push({
+        id: ref.id || createFieldId(),
+        key: ref.key,
+        type: "text",
+        value: "",
+        color: colors[state.fields.length % colors.length]
+      });
+      existingKeys.add(ref.key);
+      if (ref.id) {
+        existingIds.add(ref.id);
+      }
+    });
+
+    api.renderFields();
+    api.renderAiEditor();
+    api.updateOutput();
+    api.renderStatus();
     return true;
   };
 
@@ -261,6 +302,8 @@ export function setupPrivacyController(state, api) {
   };
 
   api.savePlainPrivateData = async function savePlainPrivateData() {
+    api.refreshPublicDraftFromEditor?.();
+    api.syncMissingPrivateFieldsFromPublic();
     if (!api.validatePrivateFieldsForSave()) {
       return false;
     }
@@ -300,10 +343,8 @@ export function setupPrivacyController(state, api) {
   };
 
   api.saveMaskedPublicData = async function saveMaskedPublicData() {
+    api.refreshPublicDraftFromEditor?.();
     const payload = state.maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields));
-    if (!payload) {
-      return;
-    }
 
     const response = await fetch("/api/public-masked", {
       method: "PUT",
@@ -312,7 +353,7 @@ export function setupPrivacyController(state, api) {
     });
 
     if (!response.ok) {
-      throw new Error("AI 读取的内容保存失败");
+      throw new Error(`AI 读取的脱敏简历保存失败：${response.status}`);
     }
 
     state.appState = await response.json();
@@ -326,6 +367,8 @@ export function setupPrivacyController(state, api) {
       api.setStatus("请先输入密钥后保存隐私信息", "warning");
       return false;
     }
+    api.refreshPublicDraftFromEditor?.();
+    api.syncMissingPrivateFieldsFromPublic();
     if (!api.validatePrivateFieldsForSave()) {
       return false;
     }
@@ -360,11 +403,12 @@ export function setupPrivacyController(state, api) {
     api.updateRememberedUnlockPassword(password);
     try {
       await api.saveMaskedPublicData();
-    } catch {
+    } catch (error) {
+      console.error(error);
       api.setStatus(
         lockAfter
-          ? "隐私信息已保存，AI读取的内容未同步保存"
-          : "隐私信息已保存，AI读取的内容未同步保存",
+          ? "隐私信息已保存，AI读取的脱敏简历未同步保存"
+          : "隐私信息已保存，AI读取的脱敏简历未同步保存",
         "warning"
       );
     }
@@ -509,6 +553,8 @@ export function setupPrivacyController(state, api) {
   };
 
   api.saveAllData = async function saveAllData() {
+    api.refreshPublicDraftFromEditor?.();
+    api.syncMissingPrivateFieldsFromPublic();
     const publicChanged = publicDirty(state);
     const privateChanged = privateDirty(state);
     if (!api.validatePrivateFieldsForSave()) {
@@ -530,31 +576,33 @@ export function setupPrivacyController(state, api) {
       }
 
       let publicSaved = false;
-      let publicFailed = false;
+      let publicFailed = "";
       try {
         if (publicChanged) {
           await api.saveMaskedPublicData();
           publicSaved = true;
         }
-      } catch {
-        publicFailed = true;
+      } catch (error) {
+        console.error(error);
+        publicFailed = error instanceof Error ? error.message : "AI读取的脱敏简历保存失败";
       }
 
       try {
         const saved = await api.savePrivateData(privatePassword);
         if (publicSaved) {
-          api.setStatus("AI读取的内容和隐私信息已保存", "ok");
+          api.setStatus("AI读取的脱敏简历和隐私信息已保存", "ok");
           return;
         }
         if (saved) {
           api.setStatus("隐私信息已保存", "ok");
           return;
         }
-      } catch {
+      } catch (error) {
+        console.error(error);
         if (publicSaved) {
-          api.setStatus("AI读取的内容已保存，隐私信息保存失败", "warning");
+          api.setStatus("AI读取的脱敏简历已保存，隐私信息保存失败", "warning");
         } else if (publicFailed) {
-          api.setStatus("AI读取的内容保存失败，隐私信息保存失败", "warning");
+          api.setStatus(`${publicFailed}，隐私信息保存失败`, "warning");
         } else {
           api.setStatus("隐私信息保存失败，请确认本地服务已启动", "warning");
         }
@@ -562,16 +610,16 @@ export function setupPrivacyController(state, api) {
       }
 
       if (publicSaved) {
-        api.setStatus("AI读取的内容已保存", "ok");
+        api.setStatus("AI读取的脱敏简历已保存", "ok");
       } else if (publicFailed) {
-        api.setStatus("AI读取的内容保存失败", "warning");
+        api.setStatus(publicFailed, "warning");
       }
       return true;
     }
 
     let publicSaved = false;
     let privateSaved = false;
-    let publicFailed = false;
+    let publicFailed = "";
     let privateFailed = false;
     let privateNeedsKey = false;
 
@@ -579,8 +627,9 @@ export function setupPrivacyController(state, api) {
       try {
         await api.saveMaskedPublicData();
         publicSaved = true;
-      } catch {
-        publicFailed = true;
+      } catch (error) {
+        console.error(error);
+        publicFailed = error instanceof Error ? error.message : "AI读取的脱敏简历保存失败";
       }
     }
 
@@ -592,30 +641,31 @@ export function setupPrivacyController(state, api) {
         try {
           const saved = await api.savePrivateData(privatePassword);
           privateSaved = Boolean(saved);
-        } catch {
+        } catch (error) {
+          console.error(error);
           privateFailed = true;
         }
       }
     }
 
     if (publicSaved && privateSaved) {
-      api.setStatus("AI读取的内容和隐私信息已保存", "ok");
+      api.setStatus("AI读取的脱敏简历和隐私信息已保存", "ok");
       return;
     }
 
     if (publicSaved && privateNeedsKey) {
-      api.setStatus("AI读取的内容已保存，隐私信息未保存，请输入密钥后继续保存", "warning");
+      api.setStatus("AI读取的脱敏简历已保存，隐私信息未保存，请输入密钥后继续保存", "warning");
       api.openPrivateCredentialPrompt("save", state.saveAllButton);
       return;
     }
 
     if (publicSaved && privateFailed) {
-      api.setStatus("AI读取的内容已保存，隐私信息保存失败", "warning");
+      api.setStatus("AI读取的脱敏简历已保存，隐私信息保存失败", "warning");
       return;
     }
 
     if (publicSaved && !privateChanged) {
-      api.setStatus("AI读取的内容已保存", "ok");
+      api.setStatus("AI读取的脱敏简历已保存", "ok");
       return;
     }
 
@@ -636,12 +686,22 @@ export function setupPrivacyController(state, api) {
     }
 
     if (publicFailed && privateSaved) {
-      api.setStatus("AI读取的内容保存失败，隐私信息已保存", "warning");
+      api.setStatus(`${publicFailed}，隐私信息已保存`, "warning");
+      return;
+    }
+
+    if (publicFailed && privateFailed) {
+      api.setStatus(`${publicFailed}，隐私信息保存失败`, "warning");
       return;
     }
 
     if (publicFailed && privateNeedsKey) {
-      api.setStatus("AI读取的内容保存失败，隐私信息未保存，请先输入密钥后保存隐私信息", "warning");
+      api.setStatus(`${publicFailed}，隐私信息未保存，请先输入密钥后保存隐私信息`, "warning");
+      return;
+    }
+
+    if (publicFailed && !privateChanged) {
+      api.setStatus(publicFailed, "warning");
       return;
     }
 

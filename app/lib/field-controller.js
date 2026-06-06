@@ -1,5 +1,5 @@
 import { colors, imageIconSvg } from "./data.js";
-import { escapeHtml, fileToDataUrl, replaceTokenFieldKey } from "./text.js";
+import { escapeHtml, fileToDataUrl, hasFieldToken, replaceFieldTokenWithValue, replaceTokenFieldKey } from "./text.js";
 import {
   createUniqueFieldKey,
   createFieldId,
@@ -60,7 +60,13 @@ export function setupFieldController(state, api) {
               </div>
             `
         }
-        <button class="field-action" data-action="delete" title="删除">×</button>
+        <div class="field-actions-menu">
+          <button class="field-action" type="button" title="字段操作" aria-label="字段操作">⋯</button>
+          <div class="field-actions-popover">
+            <button class="field-menu-item" data-action="clear-value" type="button">取消脱敏</button>
+            <button class="field-menu-item danger" data-action="delete" type="button">删除</button>
+          </div>
+        </div>
       `;
 
       card.querySelector(".field-key").addEventListener("input", event => {
@@ -120,9 +126,33 @@ export function setupFieldController(state, api) {
         });
       }
 
-      card.querySelector(".field-action").addEventListener("click", () => {
+      card.querySelector("[data-action='clear-value']").addEventListener("click", event => {
+        event.preventDefault();
+        api.closeFieldActionsMenu(card);
         if (locked) {
           api.setStatus("请先用密钥解锁隐私信息", "warning");
+          return;
+        }
+        if (!isPhotoField(state.fields[index])) {
+          state.publicDraftMarkdown = replaceFieldTokenWithValue(state.publicDraftMarkdown, state.fields[index]);
+        }
+        state.fields[index].value = "";
+        api.renderFields();
+        api.renderAiEditor();
+        api.updateOutput();
+        api.renderStatus();
+      });
+
+      card.querySelector("[data-action='delete']").addEventListener("click", event => {
+        event.preventDefault();
+        api.closeFieldActionsMenu(card);
+        if (locked) {
+          api.setStatus("请先用密钥解锁隐私信息", "warning");
+          return;
+        }
+        api.refreshPublicDraftFromEditor?.();
+        if (hasFieldToken(state.publicDraftMarkdown, state.fields[index])) {
+          api.setStatus("字段被使用，请在脱敏简历中删除或取消脱敏后再操作", "warning");
           return;
         }
         state.fields.splice(index, 1);
@@ -133,6 +163,10 @@ export function setupFieldController(state, api) {
         api.updateOutput();
         api.renderStatus();
       });
+
+      const actionsMenu = card.querySelector(".field-actions-menu");
+      actionsMenu?.addEventListener("mouseenter", () => api.positionFieldActionsMenu(actionsMenu));
+      actionsMenu?.addEventListener("focusin", () => api.positionFieldActionsMenu(actionsMenu));
 
       card.addEventListener("dragstart", event => {
         if (locked) return;
@@ -210,6 +244,26 @@ export function setupFieldController(state, api) {
         valueError.hidden = !valueHasError;
       }
     });
+  };
+
+  api.positionFieldActionsMenu = function positionFieldActionsMenu(menu) {
+    if (!menu || !state.fieldList) {
+      return;
+    }
+    const menuRect = menu.getBoundingClientRect();
+    const listRect = state.fieldList.getBoundingClientRect();
+    const estimatedMenuHeight = 72;
+    const gap = 6;
+    const spaceBelow = listRect.bottom - menuRect.bottom;
+    const spaceAbove = menuRect.top - listRect.top;
+    menu.classList.toggle("drop-up", spaceBelow < estimatedMenuHeight + gap && spaceAbove > estimatedMenuHeight + gap);
+  };
+
+  api.closeFieldActionsMenu = function closeFieldActionsMenu(card) {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && card?.contains(activeElement)) {
+      activeElement.blur();
+    }
   };
 
   api.moveField = function moveField(fromIndex, toIndex) {

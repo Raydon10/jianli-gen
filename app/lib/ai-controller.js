@@ -368,6 +368,11 @@ export function setupAiController(state, api) {
     api.renderStatus();
   };
 
+  api.refreshPublicDraftFromEditor = function refreshPublicDraftFromEditor() {
+    state.publicDraftMarkdown = normalizeAiText(serializeAiEditor());
+    return state.publicDraftMarkdown;
+  };
+
   api.mountAiEditor = function mountAiEditor() {
     if (state.aiEditor || typeof window.createJianliEditor !== "function" || !state.maskedPreview) {
       return;
@@ -376,7 +381,7 @@ export function setupAiController(state, api) {
     state.aiEditor = window.createJianliEditor(state.maskedPreview, {
       initialText: state.publicDraftMarkdown || state.savedMaskedPublicMarkdown || "",
       getFields: () => state.fields,
-      placeholder: "AI 读取的内容会在这里显示",
+      placeholder: "AI 读取的脱敏简历会在这里显示",
       onChange: text => {
         state.publicDraftMarkdown = text;
         state.aiRenderSignature = `${normalizeAiText(text)}\u0000${privateFingerprint(state)}`;

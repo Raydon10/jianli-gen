@@ -110,6 +110,27 @@ export function parseTokenLabel(label) {
   };
 }
 
+export function extractTokenRefs(text) {
+  const refs = [];
+  const tokenPattern = /\{\{([^{}]+)\}\}/g;
+  const seen = new Set();
+  let match = tokenPattern.exec(String(text || ""));
+
+  while (match) {
+    const parsed = parseTokenLabel(match[0]);
+    const key = parsed.key.trim();
+    const id = parsed.id.trim();
+    const seenKey = `${id}\u0000${key}`;
+    if (key && !seen.has(seenKey)) {
+      refs.push({ key, id });
+      seen.add(seenKey);
+    }
+    match = tokenPattern.exec(String(text || ""));
+  }
+
+  return refs;
+}
+
 export function getDisplayTokenLabel(tokenOrKey) {
   return getTokenLabel(parseTokenLabel(tokenOrKey).key);
 }
@@ -153,6 +174,29 @@ export function replaceTokenFieldKey(text, fieldId, oldKey, newKey) {
     new RegExp(escapeRegExp(`{{${oldKey}::${fieldId}}`), "g"),
     `{{${newKey}::${fieldId}}`
   );
+}
+
+export function replaceFieldTokenWithValue(text, field) {
+  if (!field?.key || !field.value) {
+    return text;
+  }
+  let output = String(text || "");
+  if (field.id) {
+    output = output.replace(new RegExp(escapeRegExp(getTokenStorageLabel(field)), "g"), field.value);
+  }
+  output = output.replace(new RegExp(escapeRegExp(getTokenLabel(field.key)), "g"), field.value);
+  return output;
+}
+
+export function hasFieldToken(text, field) {
+  if (!field?.key) {
+    return false;
+  }
+  const source = String(text || "");
+  if (field.id && source.includes(getTokenStorageLabel(field))) {
+    return true;
+  }
+  return source.includes(getTokenLabel(field.key));
 }
 
 export function unmaskText(text, mappings = []) {
