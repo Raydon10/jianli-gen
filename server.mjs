@@ -191,5 +191,5 @@ createServer(async (request, response) => {
     send(response, 500, error instanceof Error ? error.message : "Server error");
   }
 }).listen(port, host, () => {
-  console.log(`Jianli Shield Gen running at http://${host}:${port}`);
+  console.log(`简历 Gen running at http://${host}:${port}`);
 });

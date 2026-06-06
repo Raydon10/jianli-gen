@@ -11,6 +11,12 @@ const colors = [
   "#5a189a"
 ];
 
+const imageIconSvg = `<svg viewBox="0 0 24 24" aria-hidden="true">
+  <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.8" />
+  <path d="M7.2 15.2 10 12.4l2.2 2.2 2.2-2.8 2.6 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="9" cy="8.2" r="1.2" fill="currentColor" />
+</svg>`;
+
 const demoFields = [
   { key: "姓名", value: "张明远" },
   { key: "年龄", value: "29" },
@@ -148,6 +154,10 @@ let aiEditorFocused = false;
 let aiNormalizeTimer = null;
 let aiEditor = null;
 let aiRenderSignature = "";
+let dragSourceIndex = null;
+let dragTargetIndex = null;
+let dragTargetCard = null;
+let dragTargetPosition = null;
 
 const fieldList = document.querySelector("#fieldList");
 const maskedPreview = document.querySelector("#maskedPreview");
@@ -463,6 +473,28 @@ function setStatus(message, type = "info") {
   }, 2400);
 }
 
+function clearDragPreview() {
+  if (dragTargetCard) {
+    dragTargetCard.classList.remove("drop-before", "drop-after");
+  }
+  dragTargetCard = null;
+  dragTargetIndex = null;
+  dragTargetPosition = null;
+}
+
+function setDragPreview(card, index, before) {
+  if (!card) return;
+  if (dragTargetCard && dragTargetCard !== card) {
+    dragTargetCard.classList.remove("drop-before", "drop-after");
+  }
+
+  dragTargetCard = card;
+  dragTargetIndex = before ? index : index + 1;
+  dragTargetPosition = before ? "before" : "after";
+  card.classList.toggle("drop-before", before);
+  card.classList.toggle("drop-after", !before);
+}
+
 function renderStatus() {
   const privateClass = privateDirty() ? "warning" : "ok";
 
@@ -471,11 +503,11 @@ function renderStatus() {
   saveAllButton.disabled = !(publicDirty() || privateDirty());
 
   aiStatusBar.innerHTML = `
-    <span class="status-pill ${publicDirty() ? "warning" : "ok"}">${publicDirty() ? "未保存" : "已保存"}</span>
+    <span class="status-tag ${publicDirty() ? "warning" : "ok"}">${publicDirty() ? "未保存" : "已保存"}</span>
   `;
 
   privateStatusBar.innerHTML = `
-    <span class="status-pill ${privateClass}">${privateDirty() ? "未保存" : "已保存"}</span>
+    <span class="status-tag ${privateClass}">${privateDirty() ? "未保存" : "已保存"}</span>
   `;
 }
 
@@ -493,10 +525,10 @@ function renderFields() {
     const isPhoto = isPhotoField(field);
     const hasPhotoValue = Boolean(isPhoto && field.value && field.value.startsWith("data:image/"));
     const photoPreview = locked
-      ? `<span class="field-photo-empty">已锁定</span>`
+      ? `<span class="field-photo-empty">${imageIconSvg}<span>已锁定</span></span>`
       : hasPhotoValue
         ? `<img src="${escapeHtml(field.value)}" alt="图片预览">`
-        : `<span class="field-photo-empty">未添加图片</span>`;
+        : `<span class="field-photo-empty">${imageIconSvg}<span>未添加图片</span></span>`;
 
     card.innerHTML = `
       <div class="drag-handle" title="拖动排序">≡</div>
@@ -586,19 +618,33 @@ function renderFields() {
 
     card.addEventListener("dragstart", event => {
       if (locked) return;
+      dragSourceIndex = index;
+      clearDragPreview();
       event.dataTransfer.setData("text/plain", String(index));
       card.classList.add("dragging");
     });
 
-    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    card.addEventListener("dragend", () => {
+      card.classList.remove("dragging");
+      dragSourceIndex = null;
+      clearDragPreview();
+    });
 
-    card.addEventListener("dragover", event => event.preventDefault());
+    card.addEventListener("dragover", event => {
+      if (locked) return;
+      event.preventDefault();
+      const rect = card.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      setDragPreview(card, index, before);
+    });
 
     card.addEventListener("drop", event => {
       if (locked) return;
       event.preventDefault();
-      const fromIndex = Number(event.dataTransfer.getData("text/plain"));
-      moveField(fromIndex, index);
+      const fromIndex = dragSourceIndex ?? Number(event.dataTransfer.getData("text/plain"));
+      const toIndex = dragTargetIndex ?? index;
+      clearDragPreview();
+      moveField(fromIndex, toIndex);
     });
 
     fieldList.appendChild(card);
@@ -611,7 +657,7 @@ function moveField(fromIndex, toIndex) {
   }
 
   const [field] = fields.splice(fromIndex, 1);
-  fields.splice(toIndex, 0, field);
+  fields.splice(fromIndex < toIndex ? toIndex - 1 : toIndex, 0, field);
   renderFields();
   updateOutput();
   renderStatus();
