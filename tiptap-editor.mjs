@@ -31,7 +31,7 @@ function createTokenNode(key, state, color, value) {
   };
 }
 
-function tokenizeLine(line, fields) {
+function tokenizeLine(line, fields, tokenState = "saved") {
   const nodes = [];
   let cursor = 0;
 
@@ -89,7 +89,7 @@ function tokenizeLine(line, fields) {
       nodes.push(
         createTokenNode(
           best.key,
-          "saved",
+          tokenState,
           field?.color || defaultColor,
           field?.value || ""
         )
@@ -177,54 +177,78 @@ function buildTokenNodePM(schema, key, state, color, value) {
 
 function getActiveFields(fields) {
   return fields
-    .filter(field => field.key && field.value)
-    .sort((a, b) => b.value.length - a.value.length);
+    .filter(field => field.key)
+    .sort((a, b) => (b.value?.length || 0) - (a.value?.length || 0));
 }
 
-function tokenizePlainText(text, fields, schema) {
+function findBestTokenMatch(text, cursor, fields) {
+  let best = null;
+
+  for (const field of fields) {
+    const tokenLabel = getTokenLabel(field.key);
+    if (text.startsWith(tokenLabel, cursor)) {
+      const candidate = {
+        type: "token",
+        start: cursor,
+        end: cursor + tokenLabel.length,
+        field
+      };
+      if (
+        !best ||
+        candidate.start < best.start ||
+        (candidate.start === best.start && candidate.end - candidate.start > best.end - best.start)
+      ) {
+        best = candidate;
+      }
+    }
+
+    if (field.value && text.startsWith(field.value, cursor)) {
+      const candidate = {
+        type: "value",
+        start: cursor,
+        end: cursor + field.value.length,
+        field
+      };
+      if (
+        !best ||
+        candidate.start < best.start ||
+        (candidate.start === best.start && candidate.end - candidate.start > best.end - best.start)
+      ) {
+        best = candidate;
+      }
+    }
+  }
+
+  return best;
+}
+
+function tokenizePlainText(text, fields, schema, tokenState = "provisional") {
   const nodes = [];
   const active = getActiveFields(fields);
   let cursor = 0;
 
   while (cursor < text.length) {
-    let bestField = null;
-    let bestIndex = -1;
+    const best = findBestTokenMatch(text, cursor, active);
 
-    for (const field of active) {
-      const index = text.indexOf(field.value, cursor);
-      if (index === -1) {
-        continue;
-      }
-
-      if (
-        bestIndex === -1 ||
-        index < bestIndex ||
-        (index === bestIndex && field.value.length > (bestField?.value?.length || 0))
-      ) {
-        bestField = field;
-        bestIndex = index;
-      }
-    }
-
-    if (!bestField) {
+    if (!best) {
       nodes.push(schema.text(text.slice(cursor)));
       break;
     }
 
-    if (bestIndex > cursor) {
-      nodes.push(schema.text(text.slice(cursor, bestIndex)));
+    if (best.start > cursor) {
+      nodes.push(schema.text(text.slice(cursor, best.start)));
     }
 
     nodes.push(
       buildTokenNodePM(
         schema,
-        bestField.key,
-        "provisional",
-        bestField.color || defaultColor,
-        bestField.value
+        best.field.key,
+        tokenState,
+        best.field.color || defaultColor,
+        best.field.value
       )
     );
-    cursor = bestIndex + bestField.value.length;
+    cursor = best.end;
   }
 
   return nodes;
@@ -378,7 +402,7 @@ const AutoTokenizeExtension = Extension.create({
               }
 
               seenPositions.add(pos);
-              const nodes = tokenizePlainText(node.text, fields, newState.schema);
+              const nodes = tokenizePlainText(node.text, fields, newState.schema, "provisional");
               if (nodes.length === 1 && nodes[0].isText && nodes[0].text === node.text) {
                 return;
               }
