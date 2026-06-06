@@ -1,5 +1,5 @@
 import { colors, imageIconSvg } from "./data.js";
-import { escapeHtml, fileToDataUrl, hasFieldToken, replaceFieldTokenWithValue, replaceTokenFieldKey } from "./text.js";
+import { escapeHtml, fileToDataUrl, hasFieldToken, replaceFieldTokenWithValue } from "./text.js";
 import {
   createUniqueFieldKey,
   createFieldId,
@@ -71,12 +71,13 @@ export function setupFieldController(state, api) {
 
       card.querySelector(".field-key").addEventListener("input", event => {
         if (locked) return;
-        const previousKey = field.key;
         const nextKey = event.target.value.trim();
         state.fields[index].key = nextKey;
-        state.publicDraftMarkdown = replaceTokenFieldKey(state.publicDraftMarkdown, field.id, previousKey, nextKey);
         if (!state.aiEditorFocused) {
           api.renderAiEditor();
+        }
+        if (state.aiEditor) {
+          state.publicDraftMarkdown = state.aiEditor.serialize();
         }
         api.updateOutput();
         api.renderStatus();
@@ -304,7 +305,7 @@ export function setupFieldController(state, api) {
       return;
     }
     state.fields.push({
-      id: createFieldId(),
+      id: createFieldId(state.fields.map(field => field.id)),
       key: createUniqueFieldKey(state, "新字段"),
       type: "text",
       value: "",
@@ -322,7 +323,7 @@ export function setupFieldController(state, api) {
       return;
     }
     state.fields.push({
-      id: createFieldId(),
+      id: createFieldId(state.fields.map(field => field.id)),
       key: createUniqueFieldKey(state, "图片"),
       type: "photo",
       value: "",

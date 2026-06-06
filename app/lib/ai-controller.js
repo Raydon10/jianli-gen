@@ -304,8 +304,11 @@ export function setupAiController(state, api) {
     if (state.aiEditor) {
       const nextText = state.publicDraftMarkdown || "";
       const nextSignature = `${normalizeAiText(nextText)}\u0000${privateFingerprint(state)}`;
-      if (state.aiEditor.getSourceText() !== nextText || state.aiRenderSignature !== nextSignature) {
+      if (state.aiEditor.getSourceText() !== nextText) {
         state.aiEditor.setSourceText(nextText);
+        state.aiRenderSignature = nextSignature;
+      } else if (state.aiRenderSignature !== nextSignature) {
+        state.aiEditor.refreshFields?.();
         state.aiRenderSignature = nextSignature;
       }
       return;
@@ -417,9 +420,11 @@ export function setupAiController(state, api) {
   };
 
   api.generateResumePreview = function generateResumePreview() {
-    const previewText = state.privateUnlocked && state.privateValuesResolved
-      ? unmaskText(state.publicDraftMarkdown, state.fields)
-      : maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields));
+    const previewText = state.aiEditor
+      ? state.aiEditor.serializeResolved?.(state.privateUnlocked && state.privateValuesResolved) || state.publicDraftMarkdown
+      : state.privateUnlocked && state.privateValuesResolved
+        ? unmaskText(state.publicDraftMarkdown, state.fields)
+        : maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields));
     const bullets = getPublicBullets(previewText || state.savedMaskedPublicMarkdown || "");
     const name = api.readPrivateValue("姓名", "候选人");
     const city = api.readPrivateValue("城市", "城市");

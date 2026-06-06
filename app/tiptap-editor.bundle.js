@@ -18588,29 +18588,19 @@ img.ProseMirror-separator {
     return `{{${key}}}`;
   }
   function getTokenStorageLabel(field) {
-    if (!field?.id) {
-      return getTokenLabel(field?.key || "");
-    }
-    return `{{${field.key}::${field.id}}}`;
+    return getTokenLabel(field?.key || "");
   }
   function parseTokenLabel(label) {
     const source = String(label || "").trim();
     const content = source.startsWith("{{") && source.endsWith("}}") ? source.slice(2, -2).trim() : source;
-    const markerIndex = content.lastIndexOf("::");
-    if (markerIndex === -1) {
-      return {
-        key: content,
-        id: ""
-      };
-    }
     return {
-      key: content.slice(0, markerIndex).trim(),
-      id: content.slice(markerIndex + 2).trim()
+      key: content,
+      id: ""
     };
   }
   function getFieldByToken(fields, token) {
     const parsed = parseTokenLabel(token);
-    return parsed.id ? fields.find((field) => field.id === parsed.id) || fields.find((field) => field.key === parsed.key) : fields.find((field) => field.key === parsed.key);
+    return fields.find((field) => field.key === parsed.key);
   }
   function createTokenNode(field, state, value = field?.value || "") {
     return {
@@ -18713,6 +18703,33 @@ img.ProseMirror-separator {
     const lines = doc3.content?.map(serializeNode) || [];
     return lines.join("\n").replace(/\n$/, "");
   }
+  function serializeResolvedNode(node, fields, revealValues = false) {
+    if (!node) {
+      return "";
+    }
+    if (node.type === "text") {
+      return node.text || "";
+    }
+    if (node.type === "token") {
+      const field = node.attrs?.id ? fields.find((item) => item.id === node.attrs.id) : fields.find((item) => item.key === node.attrs?.key);
+      if (revealValues && field?.value) {
+        return field.value;
+      }
+      return getTokenLabel(field?.key || node.attrs?.key || "");
+    }
+    if (!node.content) {
+      return "";
+    }
+    const inner = node.content.map((child) => serializeResolvedNode(child, fields, revealValues)).join("");
+    if (node.type === "paragraph") {
+      return inner;
+    }
+    return inner;
+  }
+  function serializeResolvedDoc(doc3, fields, revealValues = false) {
+    const lines = doc3.content?.map((node) => serializeResolvedNode(node, fields, revealValues)) || [];
+    return lines.join("\n").replace(/\n$/, "");
+  }
   function buildTokenNodeJSON(field, state, color, value) {
     return {
       type: "token",
@@ -18734,30 +18751,64 @@ img.ProseMirror-separator {
       value: value || field.value || ""
     });
   }
+  function refreshTokenFields(editor, fields) {
+    const tr = editor.state.tr;
+    let changed = false;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "token") {
+        return;
+      }
+      const field = node.attrs.id ? fields.find((item) => item.id === node.attrs.id) : fields.find((item) => item.key === node.attrs.key);
+      if (!field) {
+        return;
+      }
+      const attrs = {
+        ...node.attrs,
+        id: field.id || "",
+        key: field.key || "",
+        color: field.color || defaultColor,
+        value: field.value || ""
+      };
+      if (attrs.id !== node.attrs.id || attrs.key !== node.attrs.key || attrs.color !== node.attrs.color || attrs.value !== node.attrs.value) {
+        tr.setNodeMarkup(pos, void 0, attrs);
+        changed = true;
+      }
+    });
+    if (changed) {
+      editor.view.dispatch(tr);
+    }
+  }
   function getActiveFields(fields) {
     return fields.filter((field) => field.key).sort((a, b) => (b.value?.length || 0) - (a.value?.length || 0));
   }
   function findBestTokenMatch(text, cursor, fields) {
     let best = null;
     for (const field of fields) {
-      const tokenLabels = [getTokenStorageLabel(field), getTokenLabel(field.key)];
-      const tokenLabel = tokenLabels.find((label) => text.startsWith(label, cursor));
-      if (tokenLabel) {
+      const tokenLabels = [getTokenLabel(field.key)];
+      for (const tokenLabel of tokenLabels) {
+        const index = text.indexOf(tokenLabel, cursor);
+        if (index === -1) {
+          continue;
+        }
         const candidate = {
           type: "token",
-          start: cursor,
-          end: cursor + tokenLabel.length,
+          start: index,
+          end: index + tokenLabel.length,
           field
         };
         if (!best || candidate.start < best.start || candidate.start === best.start && candidate.end - candidate.start > best.end - best.start) {
           best = candidate;
         }
       }
-      if (field.value && text.startsWith(field.value, cursor)) {
+      if (field.value) {
+        const index = text.indexOf(field.value, cursor);
+        if (index === -1) {
+          continue;
+        }
         const candidate = {
           type: "value",
-          start: cursor,
-          end: cursor + field.value.length,
+          start: index,
+          end: index + field.value.length,
           field
         };
         if (!best || candidate.start < best.start || candidate.start === best.start && candidate.end - candidate.start > best.end - best.start) {
@@ -19138,8 +19189,16 @@ img.ProseMirror-separator {
         editor.commands.setContent(buildDoc(nextText, getFields()), false);
         suppressChange = false;
       },
+      refreshFields() {
+        suppressChange = true;
+        refreshTokenFields(editor, getFields());
+        suppressChange = false;
+      },
       serialize() {
         return serializeDoc(editor.getJSON());
+      },
+      serializeResolved(revealValues = false) {
+        return serializeResolvedDoc(editor.getJSON(), getFields(), revealValues);
       },
       focus() {
         editor.commands.focus("end");

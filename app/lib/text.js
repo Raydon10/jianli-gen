@@ -86,10 +86,7 @@ export function getTokenLabel(key) {
 }
 
 export function getTokenStorageLabel(field) {
-  if (!field?.id) {
-    return getTokenLabel(field?.key || "");
-  }
-  return `{{${field.key}::${field.id}}}`;
+  return getTokenLabel(field?.key || "");
 }
 
 export function parseTokenLabel(label) {
@@ -97,16 +94,9 @@ export function parseTokenLabel(label) {
   const content = source.startsWith("{{") && source.endsWith("}}")
     ? source.slice(2, -2).trim()
     : source;
-  const markerIndex = content.lastIndexOf("::");
-  if (markerIndex === -1) {
-    return {
-      key: content,
-      id: ""
-    };
-  }
   return {
-    key: content.slice(0, markerIndex).trim(),
-    id: content.slice(markerIndex + 2).trim()
+    key: content,
+    id: ""
   };
 }
 
@@ -119,11 +109,9 @@ export function extractTokenRefs(text) {
   while (match) {
     const parsed = parseTokenLabel(match[0]);
     const key = parsed.key.trim();
-    const id = parsed.id.trim();
-    const seenKey = `${id}\u0000${key}`;
-    if (key && !seen.has(seenKey)) {
-      refs.push({ key, id });
-      seen.add(seenKey);
+    if (key && !seen.has(key)) {
+      refs.push({ key, id: "" });
+      seen.add(key);
     }
     match = tokenPattern.exec(String(text || ""));
   }
@@ -166,49 +154,22 @@ export function replaceTokenKey(text, oldKey, newKey) {
   return text.replace(new RegExp(escapeRegExp(getTokenLabel(oldKey)), "g"), getTokenLabel(newKey));
 }
 
-export function replaceTokenFieldKey(text, fieldId, oldKey, newKey) {
-  if (!fieldId || !oldKey || oldKey === newKey) {
-    return replaceTokenKey(text, oldKey, newKey);
-  }
-  return String(text || "").replace(
-    new RegExp(escapeRegExp(`{{${oldKey}::${fieldId}}`), "g"),
-    `{{${newKey}::${fieldId}}`
-  );
-}
-
 export function replaceFieldTokenWithValue(text, field) {
   if (!field?.key || !field.value) {
     return text;
   }
-  let output = String(text || "");
-  if (field.id) {
-    output = output.replace(new RegExp(escapeRegExp(getTokenStorageLabel(field)), "g"), field.value);
-  }
-  output = output.replace(new RegExp(escapeRegExp(getTokenLabel(field.key)), "g"), field.value);
-  return output;
+  return String(text || "").replace(new RegExp(escapeRegExp(getTokenLabel(field.key)), "g"), field.value);
 }
 
 export function hasFieldToken(text, field) {
   if (!field?.key) {
     return false;
   }
-  const source = String(text || "");
-  if (field.id && source.includes(getTokenStorageLabel(field))) {
-    return true;
-  }
-  return source.includes(getTokenLabel(field.key));
+  return String(text || "").includes(getTokenLabel(field.key));
 }
 
 export function unmaskText(text, mappings = []) {
   let output = String(text || "");
-
-  mappings
-    .filter(field => field.key && field.value && field.type !== "photo")
-    .forEach(field => {
-      if (field.id) {
-        output = output.replace(new RegExp(escapeRegExp(getTokenStorageLabel(field)), "g"), field.value);
-      }
-    });
 
   mappings
     .filter(field => field.key && field.value && field.type !== "photo")

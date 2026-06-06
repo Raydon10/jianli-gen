@@ -67,17 +67,16 @@ export function setupPrivacyController(state, api) {
     }
 
     missingRefs.forEach(ref => {
+      const id = ref.id || createFieldId(existingIds);
       state.fields.push({
-        id: ref.id || createFieldId(),
+        id,
         key: ref.key,
         type: "text",
         value: "",
         color: colors[state.fields.length % colors.length]
       });
       existingKeys.add(ref.key);
-      if (ref.id) {
-        existingIds.add(ref.id);
-      }
+      existingIds.add(id);
     });
 
     api.renderFields();

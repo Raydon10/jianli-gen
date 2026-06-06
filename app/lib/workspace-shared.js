@@ -15,17 +15,25 @@ import {
   getTokenLabel,
   fileToDataUrl,
   maskText,
-  replaceTokenFieldKey,
   unmaskText,
   getPublicBullets,
   getTokenStorageLabel
 } from "./text.js";
 
-export function createFieldId() {
-  if (globalThis.crypto?.randomUUID) {
-    return `fld_${globalThis.crypto.randomUUID().replaceAll("-", "")}`;
+export function createFieldId(existingIds = []) {
+  const usedIds = new Set(existingIds);
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const randomPart = globalThis.crypto?.getRandomValues
+      ? Array.from(globalThis.crypto.getRandomValues(new Uint8Array(4)), byte => byte.toString(36).padStart(2, "0")).join("").slice(0, 8)
+      : Math.random().toString(36).slice(2, 10).padEnd(8, "0");
+    const id = `fld_${randomPart}`;
+    if (!usedIds.has(id)) {
+      return id;
+    }
   }
-  return `fld_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+  return `fld_${Date.now().toString(36).slice(-8)}`;
 }
 
 export function normalizeField(field, index = 0) {
@@ -54,7 +62,6 @@ export function createWorkspaceState() {
     getTokenLabel,
     fileToDataUrl,
     maskText,
-    replaceTokenFieldKey,
     unmaskText,
     getPublicBullets,
     fields: demoFields.map((field, index) => normalizeField(field, index)),
