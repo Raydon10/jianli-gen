@@ -8,7 +8,9 @@ import {
 } from "./crypto.js";
 import {
   createEmptyPrivateFields,
+  getPrivateFieldValidation,
   getFieldColorMap,
+  normalizeField,
   normalizeFieldType,
   privateDirty,
   privateFingerprint,
@@ -28,6 +30,20 @@ export function setupPrivacyController(state, api) {
       state.toast.className = "toast";
       state.toast.textContent = "";
     }, 2400);
+  };
+
+  api.getPrivateFieldValidation = function validatePrivateFields() {
+    return getPrivateFieldValidation(state);
+  };
+
+  api.validatePrivateFieldsForSave = function validatePrivateFieldsForSave() {
+    const validation = api.getPrivateFieldValidation();
+    if (!validation.valid) {
+      api.renderPrivateFieldValidation?.();
+      api.renderStatus();
+      return false;
+    }
+    return true;
   };
 
   api.setPrivateUnlockPopoverOpen = function setPrivateUnlockPopoverOpen(open) {
@@ -92,6 +108,9 @@ export function setupPrivacyController(state, api) {
 
     state.privateUnlockNote.textContent = content.note;
     state.unlockPrivateConfirmButton.textContent = content.button;
+    if (state.rememberUnlockCheckbox) {
+      state.rememberUnlockCheckbox.checked = true;
+    }
     if (state.rememberUnlockCheckbox?.closest) {
       const rememberRow = state.rememberUnlockCheckbox.closest(".private-unlock-remember");
       if (rememberRow) {
@@ -166,7 +185,9 @@ export function setupPrivacyController(state, api) {
   };
 
   api.renderStatus = function renderStatus() {
-    const privateClass = privateDirty(state) ? "warning" : "ok";
+    const fieldValidation = api.getPrivateFieldValidation();
+    const privateHasIssue = privateDirty(state) || !fieldValidation.valid;
+    const privateClass = privateHasIssue ? "warning" : "ok";
     const canEditPrivate = state.privateMode === "plain" || state.privateUnlocked;
 
     if (state.privateMode === "plain") {
@@ -203,7 +224,7 @@ export function setupPrivacyController(state, api) {
 
     if (state.privateStatusBar) {
       state.privateStatusBar.innerHTML = `
-        <span class="status-tag ${privateClass}">${privateDirty(state) ? "未保存" : "已保存"}</span>
+        <span class="status-tag ${privateClass}">${!fieldValidation.valid ? "需修改" : privateDirty(state) ? "未保存" : "已保存"}</span>
       `;
     }
   };
@@ -231,6 +252,7 @@ export function setupPrivacyController(state, api) {
 
   api.buildPrivateFieldsSnapshot = function buildPrivateFieldsSnapshot() {
     return state.fields.map((field, index) => ({
+      id: field.id,
       key: field.key,
       type: normalizeFieldType(field.type),
       value: field.value,
@@ -239,6 +261,9 @@ export function setupPrivacyController(state, api) {
   };
 
   api.savePlainPrivateData = async function savePlainPrivateData() {
+    if (!api.validatePrivateFieldsForSave()) {
+      return false;
+    }
     const plainFields = api.buildPrivateFieldsSnapshot();
     const response = await fetch("/api/private", {
       method: "PUT",
@@ -299,6 +324,9 @@ export function setupPrivacyController(state, api) {
     const lockAfter = Boolean(options.lockAfter);
     if (!password) {
       api.setStatus("请先输入密钥后保存隐私信息", "warning");
+      return false;
+    }
+    if (!api.validatePrivateFieldsForSave()) {
       return false;
     }
 
@@ -414,10 +442,7 @@ export function setupPrivacyController(state, api) {
         api.setStatus("没有已保存的隐私信息", "warning");
         return false;
       }
-      state.fields = (await decryptPrivateFields(password, await response.json())).map(field => ({
-        ...field,
-        type: normalizeFieldType(field.type)
-      }));
+      state.fields = (await decryptPrivateFields(password, await response.json())).map((field, index) => normalizeField(field, index));
       state.savedPrivateFingerprint = privateFingerprint(state);
       state.savedPrivateKeys = state.fields.map(field => field.key);
       state.savedPrivateTypes = state.fields.map(field => normalizeFieldType(field.type));
@@ -486,6 +511,11 @@ export function setupPrivacyController(state, api) {
   api.saveAllData = async function saveAllData() {
     const publicChanged = publicDirty(state);
     const privateChanged = privateDirty(state);
+    if (!api.validatePrivateFieldsForSave()) {
+      api.renderFields();
+      api.renderStatus();
+      return false;
+    }
     if (!publicChanged && !privateChanged && state.privateMode !== "plain") {
       api.setStatus("没有需要保存的内容", "info");
       return;
@@ -676,11 +706,7 @@ export function setupPrivacyController(state, api) {
           const payload = await privateResponse.json();
           const plainFields = Array.isArray(payload.fields) ? payload.fields : [];
           if (plainFields.length) {
-            state.fields = plainFields.map((field, index) => ({
-              ...field,
-              type: normalizeFieldType(field.type),
-              color: colors[index % colors.length]
-            }));
+            state.fields = plainFields.map((field, index) => normalizeField(field, index));
           } else if (state.appState.privateMode === "plain" || state.appState.privateClearedAt) {
             state.fields = createEmptyPrivateFields(
               state,
@@ -688,11 +714,7 @@ export function setupPrivacyController(state, api) {
               state.savedPrivateTypes
             );
           } else {
-            state.fields = state.fields.map((field, index) => ({
-              ...field,
-              type: normalizeFieldType(field.type),
-              color: field.color || colors[index % colors.length]
-            }));
+            state.fields = state.fields.map((field, index) => normalizeField(field, index));
           }
         } else if (state.appState.privateMode === "plain" || state.appState.privateClearedAt) {
           state.fields = createEmptyPrivateFields(
@@ -701,11 +723,7 @@ export function setupPrivacyController(state, api) {
             state.savedPrivateTypes
           );
         } else {
-          state.fields = state.fields.map((field, index) => ({
-            ...field,
-            type: normalizeFieldType(field.type),
-            color: field.color || colors[index % colors.length]
-          }));
+          state.fields = state.fields.map((field, index) => normalizeField(field, index));
         }
         state.privateUnlocked = true;
         state.privateValuesResolved = true;

@@ -4,6 +4,9 @@ import {
   getSharedTextBounds,
   isSpanSaved,
   getTokenLabel,
+  getDisplayTokenLabel,
+  getTokenStorageLabel,
+  parseTokenLabel,
   maskText,
   unmaskText,
   getPublicBullets
@@ -35,7 +38,7 @@ export function setupAiController(state, api) {
     }
     const element = node;
     if (element.classList.contains("token-chip")) {
-      return getTokenLabel(element.dataset.tokenKey || "").length;
+      return getDisplayTokenLabel(element.dataset.tokenKey || "").length;
     }
     if (element.tagName === "BR") {
       return 1;
@@ -108,7 +111,7 @@ export function setupAiController(state, api) {
       }
       const element = node;
       if (element.classList.contains("token-chip")) {
-        const tokenLength = getTokenLabel(element.dataset.tokenKey || "").length;
+        const tokenLength = getDisplayTokenLabel(element.dataset.tokenKey || "").length;
         const parent = element.parentNode;
         const childIndex = parent ? Array.prototype.indexOf.call(parent.childNodes, element) : 0;
         if (targetIndex <= index) {
@@ -150,20 +153,32 @@ export function setupAiController(state, api) {
     };
   }
 
-  function buildTokenChip(key, options = {}) {
+  function resolveTokenField(token) {
+    const parsed = parseTokenLabel(token);
+    return parsed.id
+      ? state.fields.find(item => item.id === parsed.id) || state.fields.find(item => item.key === parsed.key)
+      : state.fields.find(item => item.key === parsed.key);
+  }
+
+  function buildTokenChip(fieldOrKey, options = {}) {
     const {
       tokenValue = "",
       tokenState = "saved",
       tokenSource = "literal-token"
     } = options;
+    const field = typeof fieldOrKey === "object" ? fieldOrKey : resolveTokenField(fieldOrKey);
+    const key = field?.key || parseTokenLabel(fieldOrKey).key;
+    const token = field ? getTokenStorageLabel(field) : getTokenLabel(key);
     const span = document.createElement("span");
     span.className = "token-chip";
     span.dataset.tokenState = tokenState;
     span.dataset.tokenSource = tokenSource;
     span.contentEditable = "false";
-    span.dataset.tokenKey = key;
+    span.dataset.tokenKey = token;
+    if (field?.id) {
+      span.dataset.tokenId = field.id;
+    }
     span.dataset.tokenValue = tokenValue;
-    const field = state.fields.find(item => item.key === key);
     if (field?.color) {
       span.style.setProperty("--token-color", field.color);
     }
@@ -202,7 +217,7 @@ export function setupAiController(state, api) {
         fragment.appendChild(document.createTextNode(text.slice(cursor, bestIndex)));
       }
 
-      fragment.appendChild(buildTokenChip(bestField.key, {
+      fragment.appendChild(buildTokenChip(bestField, {
         tokenValue: bestField.value,
         tokenState: isSpanSaved(bestIndex, bestIndex + bestField.value.length, getSharedTextBounds(text, state.savedMaskedPublicMarkdown || ""), text, state.savedMaskedPublicMarkdown || "")
           ? "saved"
@@ -225,10 +240,12 @@ export function setupAiController(state, api) {
         appendValueMatches(fragment, source.slice(cursor, match.index));
       }
 
-      const key = match[1].trim();
-      const field = state.fields.find(item => item.key === key);
+      const parsed = parseTokenLabel(match[0]);
+      const field = parsed.id
+        ? state.fields.find(item => item.id === parsed.id)
+        : state.fields.find(item => item.key === parsed.key);
       if (field) {
-        fragment.appendChild(buildTokenChip(field.key, {
+        fragment.appendChild(buildTokenChip(field, {
           tokenValue: field.value,
           tokenState: "saved",
           tokenSource: "saved-token"
@@ -262,8 +279,7 @@ export function setupAiController(state, api) {
       }
       const element = node;
       if (element.classList.contains("token-chip")) {
-        const key = element.dataset.tokenKey || "";
-        return getTokenLabel(key);
+        return element.dataset.tokenKey || getTokenLabel(element.textContent || "");
       }
       if (element.tagName === "BR") {
         return "\n";

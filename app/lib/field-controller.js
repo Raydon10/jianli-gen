@@ -1,7 +1,8 @@
 import { colors, imageIconSvg } from "./data.js";
-import { escapeHtml, fileToDataUrl, replaceTokenKey } from "./text.js";
+import { escapeHtml, fileToDataUrl, replaceTokenFieldKey } from "./text.js";
 import {
   createUniqueFieldKey,
+  createFieldId,
   isPhotoField,
 } from "./workspace-shared.js";
 
@@ -9,6 +10,9 @@ export function setupFieldController(state, api) {
   api.renderFields = function renderFields() {
     state.fieldList.innerHTML = "";
     const locked = !state.privateUnlocked;
+    const validation = api.getPrivateFieldValidation
+      ? api.getPrivateFieldValidation()
+      : { duplicateKeyIndexes: new Set(), duplicateValueIndexes: new Set(), emptyKeyIndexes: new Set() };
 
     state.fields.forEach((field, index) => {
       const card = document.createElement("div");
@@ -18,6 +22,13 @@ export function setupFieldController(state, api) {
       card.style.setProperty("--field-color", field.color);
 
       const isPhoto = isPhotoField(field);
+      const keyErrorText = validation.emptyKeyIndexes.has(index)
+        ? "字段名必填"
+        : validation.duplicateKeyIndexes.has(index)
+          ? "字段名重复"
+          : "";
+      const keyHasError = Boolean(keyErrorText);
+      const valueHasError = validation.duplicateValueIndexes.has(index);
       const hasPhotoValue = Boolean(isPhoto && field.value && field.value.startsWith("data:image/"));
       const photoPreview = locked
         ? `<span class="field-photo-empty">${imageIconSvg}<span>已锁定</span></span>`
@@ -27,17 +38,26 @@ export function setupFieldController(state, api) {
 
       card.innerHTML = `
         <div class="drag-handle" title="拖动排序">≡</div>
-        <input class="field-key" value="${escapeHtml(field.key)}" aria-label="字段名" ${locked ? "disabled" : ""}>
+        <div class="field-cell">
+          <input class="field-key${keyHasError ? " has-error" : ""}" value="${escapeHtml(field.key)}" aria-label="字段名" placeholder="字段名" ${keyHasError ? 'aria-invalid="true"' : ""} ${locked ? "disabled" : ""}>
+          <div class="field-error" data-error-for="key" ${keyHasError ? "" : "hidden"}>${keyErrorText}</div>
+        </div>
         ${
           isPhoto
             ? `
-              <button class="field-photo-trigger ${hasPhotoValue ? "has-image" : "is-empty"}" type="button" ${locked ? "disabled" : ""} aria-label="${locked ? "已锁定" : "选择图片"}">
-                ${photoPreview}
-              </button>
-              <input class="field-photo-input" type="file" accept="image/*" aria-label="上传图片" ${locked ? "disabled" : ""}>
+              <div class="field-cell">
+                <button class="field-photo-trigger ${hasPhotoValue ? "has-image" : "is-empty"}${valueHasError ? " has-error" : ""}" type="button" ${valueHasError ? 'aria-invalid="true"' : ""} ${locked ? "disabled" : ""} aria-label="${locked ? "已锁定" : "选择图片"}">
+                  ${photoPreview}
+                </button>
+                <input class="field-photo-input" type="file" accept="image/*" aria-label="上传图片" ${locked ? "disabled" : ""}>
+                <div class="field-error" data-error-for="value" ${valueHasError ? "" : "hidden"}>${valueHasError ? "字段值重复" : ""}</div>
+              </div>
             `
             : `
-              <input class="field-value" type="${locked ? "password" : "text"}" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "请输入值"}" ${locked ? "disabled" : ""}>
+              <div class="field-cell">
+                <input class="field-value${valueHasError ? " has-error" : ""}" type="${locked ? "password" : "text"}" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "字段值"}" ${valueHasError ? 'aria-invalid="true"' : ""} ${locked ? "disabled" : ""}>
+                <div class="field-error" data-error-for="value" ${valueHasError ? "" : "hidden"}>${valueHasError ? "字段值重复" : ""}</div>
+              </div>
             `
         }
         <button class="field-action" data-action="delete" title="删除">×</button>
@@ -48,12 +68,13 @@ export function setupFieldController(state, api) {
         const previousKey = field.key;
         const nextKey = event.target.value.trim();
         state.fields[index].key = nextKey;
-        state.publicDraftMarkdown = replaceTokenKey(state.publicDraftMarkdown, previousKey, nextKey);
+        state.publicDraftMarkdown = replaceTokenFieldKey(state.publicDraftMarkdown, field.id, previousKey, nextKey);
         if (!state.aiEditorFocused) {
           api.renderAiEditor();
         }
         api.updateOutput();
         api.renderStatus();
+        api.renderPrivateFieldValidation();
       });
 
       if (isPhoto) {
@@ -81,6 +102,7 @@ export function setupFieldController(state, api) {
             }
             api.updateOutput();
             api.renderStatus();
+            api.renderPrivateFieldValidation();
           } catch {
             api.setStatus("图片读取失败", "warning");
           }
@@ -94,6 +116,7 @@ export function setupFieldController(state, api) {
           }
           api.updateOutput();
           api.renderStatus();
+          api.renderPrivateFieldValidation();
         });
       }
 
@@ -146,6 +169,49 @@ export function setupFieldController(state, api) {
     });
   };
 
+  api.renderPrivateFieldValidation = function renderPrivateFieldValidation() {
+    if (!state.fieldList || !api.getPrivateFieldValidation) {
+      return;
+    }
+    const validation = api.getPrivateFieldValidation();
+    state.fieldList.querySelectorAll(".field-card").forEach((card, index) => {
+      const keyInput = card.querySelector(".field-key");
+      const valueInput = card.querySelector(".field-value");
+      const photoTrigger = card.querySelector(".field-photo-trigger");
+      const keyError = card.querySelector("[data-error-for='key']");
+      const valueError = card.querySelector("[data-error-for='value']");
+      const keyErrorText = validation.emptyKeyIndexes.has(index)
+        ? "字段名必填"
+        : validation.duplicateKeyIndexes.has(index)
+          ? "字段名重复"
+          : "";
+      const keyHasError = Boolean(keyErrorText);
+      const valueHasError = validation.duplicateValueIndexes.has(index);
+
+      keyInput?.classList.toggle("has-error", keyHasError);
+      if (keyInput) {
+        keyInput.toggleAttribute("aria-invalid", keyHasError);
+      }
+      if (keyError) {
+        keyError.textContent = keyErrorText;
+        keyError.hidden = !keyHasError;
+      }
+
+      valueInput?.classList.toggle("has-error", valueHasError);
+      if (valueInput) {
+        valueInput.toggleAttribute("aria-invalid", valueHasError);
+      }
+      photoTrigger?.classList.toggle("has-error", valueHasError);
+      if (photoTrigger) {
+        photoTrigger.toggleAttribute("aria-invalid", valueHasError);
+      }
+      if (valueError) {
+        valueError.textContent = valueHasError ? "字段值重复" : "";
+        valueError.hidden = !valueHasError;
+      }
+    });
+  };
+
   api.moveField = function moveField(fromIndex, toIndex) {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
       return;
@@ -184,7 +250,8 @@ export function setupFieldController(state, api) {
       return;
     }
     state.fields.push({
-      key: "新字段",
+      id: createFieldId(),
+      key: createUniqueFieldKey(state, "新字段"),
       type: "text",
       value: "",
       color: colors[state.fields.length % colors.length]
@@ -201,6 +268,7 @@ export function setupFieldController(state, api) {
       return;
     }
     state.fields.push({
+      id: createFieldId(),
       key: createUniqueFieldKey(state, "图片"),
       type: "photo",
       value: "",

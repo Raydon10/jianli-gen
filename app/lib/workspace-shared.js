@@ -15,10 +15,28 @@ import {
   getTokenLabel,
   fileToDataUrl,
   maskText,
-  replaceTokenKey,
+  replaceTokenFieldKey,
   unmaskText,
-  getPublicBullets
+  getPublicBullets,
+  getTokenStorageLabel
 } from "./text.js";
+
+export function createFieldId() {
+  if (globalThis.crypto?.randomUUID) {
+    return `fld_${globalThis.crypto.randomUUID().replaceAll("-", "")}`;
+  }
+  return `fld_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function normalizeField(field, index = 0) {
+  return {
+    id: field.id || createFieldId(),
+    key: field.key || "",
+    type: normalizeFieldType(field.type),
+    value: field.value || "",
+    color: field.color || colors[index % colors.length]
+  };
+}
 
 export function createWorkspaceState() {
   return {
@@ -36,13 +54,10 @@ export function createWorkspaceState() {
     getTokenLabel,
     fileToDataUrl,
     maskText,
-    replaceTokenKey,
+    replaceTokenFieldKey,
     unmaskText,
     getPublicBullets,
-    fields: demoFields.map((field, index) => ({
-      ...field,
-      color: colors[index % colors.length]
-    })),
+    fields: demoFields.map((field, index) => normalizeField(field, index)),
     publicDraftMarkdown: "",
     savedMaskedPublicMarkdown: "",
     savedPrivateValues: {},
@@ -78,8 +93,10 @@ export function getTokenMappings(state) {
   state.fields.forEach(field => {
     if (field.key && field.value && field.type !== "photo") {
       mappings.push({
+        id: field.id,
         key: field.key,
         value: field.value,
+        token: getTokenStorageLabel(field),
         source: "current"
       });
     }
@@ -114,6 +131,10 @@ export function getFieldByKey(state, key) {
   return state.fields.find(field => field.key === key);
 }
 
+export function getFieldById(state, id) {
+  return state.fields.find(field => field.id === id);
+}
+
 export function isPhotoField(field) {
   return field?.type === "photo";
 }
@@ -136,8 +157,60 @@ export function createUniqueFieldKey(state, base) {
   return `${base}${index}`;
 }
 
+export function getPrivateFieldValidation(state) {
+  const emptyKeyIndexes = new Set();
+  const duplicateKeyIndexes = new Set();
+  const duplicateValueIndexes = new Set();
+  const keyIndexes = new Map();
+  const valueIndexes = new Map();
+
+  state.fields.forEach((field, index) => {
+    const key = String(field.key || "").trim();
+    const value = String(field.value || "").trim();
+    if (!key) {
+      emptyKeyIndexes.add(index);
+    } else {
+      keyIndexes.set(key, [...(keyIndexes.get(key) || []), index]);
+    }
+    if (value) {
+      valueIndexes.set(value, [...(valueIndexes.get(value) || []), index]);
+    }
+  });
+
+  keyIndexes.forEach(indexes => {
+    if (indexes.length > 1) {
+      indexes.forEach(index => duplicateKeyIndexes.add(index));
+    }
+  });
+  valueIndexes.forEach(indexes => {
+    if (indexes.length > 1) {
+      indexes.forEach(index => duplicateValueIndexes.add(index));
+    }
+  });
+
+  const messages = [];
+  if (emptyKeyIndexes.size) {
+    messages.push("字段名不能为空");
+  }
+  if (duplicateKeyIndexes.size) {
+    messages.push("字段名不能重复");
+  }
+  if (duplicateValueIndexes.size) {
+    messages.push("字段值不能重复");
+  }
+
+  return {
+    duplicateKeyIndexes,
+    duplicateValueIndexes,
+    emptyKeyIndexes,
+    valid: messages.length === 0,
+    message: messages.join("，")
+  };
+}
+
 export function privateFingerprint(state) {
-  return JSON.stringify(state.fields.map(({ key, type, value, color }) => ({
+  return JSON.stringify(state.fields.map(({ id, key, type, value, color }) => ({
+    id,
     key,
     type: normalizeFieldType(type),
     value,
@@ -147,6 +220,7 @@ export function privateFingerprint(state) {
 
 export function createEmptyPrivateFields(state, keys = defaultPrivateKeys, types = []) {
   return keys.map((key, index) => ({
+    id: createFieldId(),
     key,
     type: normalizeFieldType(types[index]),
     value: "",
@@ -155,12 +229,7 @@ export function createEmptyPrivateFields(state, keys = defaultPrivateKeys, types
 }
 
 export function cloneFields(sourceFields) {
-  return sourceFields.map((field, index) => ({
-    key: field.key,
-    type: normalizeFieldType(field.type),
-    value: field.value,
-    color: colors[index % colors.length]
-  }));
+  return sourceFields.map((field, index) => normalizeField(field, index));
 }
 
 export function buildTokenMappings(sourceFields) {
@@ -168,13 +237,18 @@ export function buildTokenMappings(sourceFields) {
     .filter(field => field.key && field.value && field.type !== "photo")
     .sort((a, b) => b.value.length - a.value.length)
     .map(field => ({
+      id: field.id,
       key: field.key,
-      value: field.value
+      value: field.value,
+      token: getTokenStorageLabel(field)
     }));
 }
 
 export function getFieldColorMap(sourceFields) {
-  return new Map(sourceFields.map(field => [field.key, field.color || "#8892a0"]));
+  return new Map(sourceFields.flatMap(field => [
+    [field.id || field.key, field.color || "#8892a0"],
+    [field.key, field.color || "#8892a0"]
+  ]));
 }
 
 export function applySample(state, sample, options = {}) {

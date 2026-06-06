@@ -15,17 +15,46 @@ function getTokenLabel(key) {
   return `{{${key}}}`;
 }
 
-function getFieldByKey(fields, key) {
-  return fields.find(field => field.key === key);
+function getTokenStorageLabel(field) {
+  if (!field?.id) {
+    return getTokenLabel(field?.key || "");
+  }
+  return `{{${field.key}::${field.id}}}`;
 }
 
-function createTokenNode(key, state, color, value) {
+function parseTokenLabel(label) {
+  const source = String(label || "").trim();
+  const content = source.startsWith("{{") && source.endsWith("}}")
+    ? source.slice(2, -2).trim()
+    : source;
+  const markerIndex = content.lastIndexOf("::");
+  if (markerIndex === -1) {
+    return {
+      key: content,
+      id: ""
+    };
+  }
+  return {
+    key: content.slice(0, markerIndex).trim(),
+    id: content.slice(markerIndex + 2).trim()
+  };
+}
+
+function getFieldByToken(fields, token) {
+  const parsed = parseTokenLabel(token);
+  return parsed.id
+    ? fields.find(field => field.id === parsed.id) || fields.find(field => field.key === parsed.key)
+    : fields.find(field => field.key === parsed.key);
+}
+
+function createTokenNode(field, state, value = field?.value || "") {
   return {
     type: "token",
     attrs: {
-      key,
+      id: field?.id || "",
+      key: field?.key || "",
       state,
-      color,
+      color: field?.color || defaultColor,
       value
     }
   };
@@ -47,7 +76,7 @@ function tokenizeLine(line, fields, tokenState = "saved") {
           start: tokenStart,
           end: tokenEnd + 2,
           text: line.slice(tokenStart, tokenEnd + 2),
-          key: line.slice(tokenStart + 2, tokenEnd).trim()
+          token: line.slice(tokenStart, tokenEnd + 2)
         };
       }
     }
@@ -85,24 +114,13 @@ function tokenizeLine(line, fields, tokenState = "saved") {
     }
 
     if (best.type === "token") {
-      const field = getFieldByKey(fields, best.key);
+      const parsed = parseTokenLabel(best.token);
+      const field = getFieldByToken(fields, best.token);
       nodes.push(
-        createTokenNode(
-          best.key,
-          tokenState,
-          field?.color || defaultColor,
-          field?.value || ""
-        )
+        createTokenNode(field || { key: parsed.key, id: parsed.id, color: defaultColor, value: "" }, tokenState, field?.value || "")
       );
     } else if (best.field) {
-      nodes.push(
-        createTokenNode(
-          best.field.key,
-          "provisional",
-          best.field.color || defaultColor,
-          best.field.value
-        )
-      );
+      nodes.push(createTokenNode(best.field, "provisional", best.field.value));
     }
 
     cursor = best.end;
@@ -134,7 +152,7 @@ function serializeNode(node) {
   }
 
   if (node.type === "token") {
-    return getTokenLabel(node.attrs?.key || "");
+    return getTokenStorageLabel(node.attrs || {});
   }
 
   if (!node.content) {
@@ -154,24 +172,26 @@ function serializeDoc(doc) {
   return lines.join("\n").replace(/\n$/, "");
 }
 
-function buildTokenNodeJSON(key, state, color, value) {
+function buildTokenNodeJSON(field, state, color, value) {
   return {
     type: "token",
     attrs: {
-      key,
+      id: field.id || "",
+      key: field.key || "",
       state,
-      color,
-      value
+      color: color || field.color || defaultColor,
+      value: value || field.value || ""
     }
   };
 }
 
-function buildTokenNodePM(schema, key, state, color, value) {
+function buildTokenNodePM(schema, field, state, color, value) {
   return schema.nodes.token.create({
-    key,
+    id: field.id || "",
+    key: field.key || "",
     state,
-    color,
-    value
+    color: color || field.color || defaultColor,
+    value: value || field.value || ""
   });
 }
 
@@ -185,8 +205,9 @@ function findBestTokenMatch(text, cursor, fields) {
   let best = null;
 
   for (const field of fields) {
-    const tokenLabel = getTokenLabel(field.key);
-    if (text.startsWith(tokenLabel, cursor)) {
+    const tokenLabels = [getTokenStorageLabel(field), getTokenLabel(field.key)];
+    const tokenLabel = tokenLabels.find(label => text.startsWith(label, cursor));
+    if (tokenLabel) {
       const candidate = {
         type: "token",
         start: cursor,
@@ -242,7 +263,7 @@ function tokenizePlainText(text, fields, schema, tokenState = "provisional") {
     nodes.push(
       buildTokenNodePM(
         schema,
-        best.field.key,
+        best.field,
         tokenState,
         best.field.color || defaultColor,
         best.field.value
@@ -270,6 +291,7 @@ const TokenNode = Node.create({
   addAttributes() {
     return {
       key: { default: "" },
+      id: { default: "" },
       state: { default: "saved" },
       color: { default: defaultColor },
       value: { default: "" }
@@ -285,7 +307,9 @@ const TokenNode = Node.create({
       "span",
       mergeAttributes({
         class: "token-chip",
-        "data-token-key": node.attrs.key,
+        "data-token-id": node.attrs.id,
+        "data-token-key": getTokenStorageLabel(node.attrs),
+        "data-token-label": node.attrs.key,
         "data-token-state": node.attrs.state,
         "data-token-value": node.attrs.value,
         style: `--token-color:${node.attrs.color || defaultColor}`
@@ -475,6 +499,7 @@ const SlashSuggestionExtension = Extension.create({
         return;
       }
       props.command({
+        id: item.id,
         key: item.key,
         value: item.value,
         color: item.color || defaultColor
@@ -510,14 +535,14 @@ const SlashSuggestionExtension = Extension.create({
         allowedPrefixes: null,
         startOfLine: false,
         command: ({ editor, range, props }) => {
-          const field = getFields().find(item => item.key === props.key);
+          const field = getFields().find(item => item.id === props.id) || getFields().find(item => item.key === props.key);
           if (!field) {
             return;
           }
           editor
             .chain()
             .focus()
-            .insertContentAt(range, buildTokenNodeJSON(field.key, "provisional", field.color || defaultColor, field.value))
+            .insertContentAt(range, buildTokenNodeJSON(field, "provisional", field.color || defaultColor, field.value))
             .run();
         },
         items: ({ query }) => {

@@ -85,6 +85,35 @@ export function getTokenLabel(key) {
   return `{{${key}}}`;
 }
 
+export function getTokenStorageLabel(field) {
+  if (!field?.id) {
+    return getTokenLabel(field?.key || "");
+  }
+  return `{{${field.key}::${field.id}}}`;
+}
+
+export function parseTokenLabel(label) {
+  const source = String(label || "").trim();
+  const content = source.startsWith("{{") && source.endsWith("}}")
+    ? source.slice(2, -2).trim()
+    : source;
+  const markerIndex = content.lastIndexOf("::");
+  if (markerIndex === -1) {
+    return {
+      key: content,
+      id: ""
+    };
+  }
+  return {
+    key: content.slice(0, markerIndex).trim(),
+    id: content.slice(markerIndex + 2).trim()
+  };
+}
+
+export function getDisplayTokenLabel(tokenOrKey) {
+  return getTokenLabel(parseTokenLabel(tokenOrKey).key);
+}
+
 export function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -98,9 +127,9 @@ export function maskText(text, mappings = [], colorByKey = new Map(), htmlMode =
   let output = escapeHtml(text);
 
   mappings.forEach(mapping => {
-    const token = getTokenLabel(mapping.key);
+    const token = mapping.token || getTokenStorageLabel(mapping);
     const replacement = htmlMode
-      ? `<span class="token" style="--token-color:${colorByKey.get(mapping.key) || "#8892a0"}">${escapeHtml(token)}</span>`
+      ? `<span class="token" style="--token-color:${colorByKey.get(mapping.id) || colorByKey.get(mapping.key) || "#8892a0"}">${escapeHtml(token)}</span>`
       : token;
     output = output.replace(new RegExp(escapeRegExp(escapeHtml(mapping.value)), "g"), replacement);
   });
@@ -116,8 +145,26 @@ export function replaceTokenKey(text, oldKey, newKey) {
   return text.replace(new RegExp(escapeRegExp(getTokenLabel(oldKey)), "g"), getTokenLabel(newKey));
 }
 
+export function replaceTokenFieldKey(text, fieldId, oldKey, newKey) {
+  if (!fieldId || !oldKey || oldKey === newKey) {
+    return replaceTokenKey(text, oldKey, newKey);
+  }
+  return String(text || "").replace(
+    new RegExp(escapeRegExp(`{{${oldKey}::${fieldId}}`), "g"),
+    `{{${newKey}::${fieldId}}`
+  );
+}
+
 export function unmaskText(text, mappings = []) {
   let output = String(text || "");
+
+  mappings
+    .filter(field => field.key && field.value && field.type !== "photo")
+    .forEach(field => {
+      if (field.id) {
+        output = output.replace(new RegExp(escapeRegExp(getTokenStorageLabel(field)), "g"), field.value);
+      }
+    });
 
   mappings
     .filter(field => field.key && field.value && field.type !== "photo")
