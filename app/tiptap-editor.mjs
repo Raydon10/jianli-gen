@@ -11,6 +11,15 @@ function normalizeText(text) {
   return (text || "").replace(/\r\n?/g, "\n");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function getTokenLabel(key) {
   return `{{${key}}}`;
 }
@@ -338,6 +347,26 @@ function collectChangedRanges(transactions) {
   return ranges;
 }
 
+function expandRangesToTextblocks(doc, ranges) {
+  const blocks = [];
+  const seen = new Set();
+
+  ranges.forEach(range => {
+    const from = Math.max(0, range.from - 1);
+    const to = Math.min(doc.content.size, range.to + 1);
+
+    doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isTextblock || seen.has(pos)) {
+        return;
+      }
+      seen.add(pos);
+      blocks.push({ node, pos });
+    });
+  });
+
+  return blocks;
+}
+
 function normalizeSlashQuery(query) {
   return normalizeText(query || "").trim().toLowerCase();
 }
@@ -417,15 +446,13 @@ const AutoTokenizeExtension = Extension.create({
 
           const fields = getFields();
           const replacements = [];
-          const seenPositions = new Set();
+          const changedBlocks = expandRangesToTextblocks(newState.doc, ranges);
 
-          ranges.forEach(range => {
-            newState.doc.nodesBetween(range.from, range.to, (node, pos) => {
-              if (!node.isText || !node.text || seenPositions.has(pos)) {
+          changedBlocks.forEach(block => {
+            newState.doc.nodesBetween(block.pos + 1, block.pos + block.node.nodeSize - 1, (node, pos) => {
+              if (!node.isText || !node.text) {
                 return;
               }
-
-              seenPositions.add(pos);
               const nodes = tokenizePlainText(node.text, fields, newState.schema, "provisional");
               if (nodes.length === 1 && nodes[0].isText && nodes[0].text === node.text) {
                 return;
