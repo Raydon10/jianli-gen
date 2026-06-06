@@ -138,6 +138,7 @@ let savedMaskedPublicMarkdown = "";
 let savedPrivateValues = {};
 let savedPrivateFingerprint = "";
 let savedPrivateKeys = [];
+let savedPrivateTypes = [];
 let privateUnlocked = false;
 let privateValuesResolved = false;
 let hasEncryptedPrivate = false;
@@ -158,6 +159,7 @@ const privateKeyInput = document.querySelector("#privateKey");
 const unlockPrivateButton = document.querySelector("#unlockPrivate");
 const saveAllButton = document.querySelector("#saveAll");
 const clearPrivateButton = document.querySelector("#clearPrivate");
+const addImageButton = document.querySelector("#addImage");
 const aiStatusBar = document.querySelector("#aiStatusBar");
 const privateStatusBar = document.querySelector("#privateStatusBar");
 const toast = document.querySelector("#toast");
@@ -255,7 +257,7 @@ function isSpanSaved(start, end, bounds, currentText, savedText) {
 
 function getActiveFields() {
   return fields
-    .filter(field => field.key && field.value)
+    .filter(field => field.key && field.value && field.type !== "photo")
     .sort((a, b) => b.value.length - a.value.length);
 }
 
@@ -264,7 +266,7 @@ function getTokenMappings() {
   const currentValuesByKey = new Map(fields.map(field => [field.key, field.value]));
 
   fields.forEach(field => {
-    if (field.key && field.value) {
+    if (field.key && field.value && field.type !== "photo") {
       mappings.push({
         key: field.key,
         value: field.value,
@@ -300,6 +302,37 @@ function getTokenMappings() {
 
 function getFieldByKey(key) {
   return fields.find(field => field.key === key);
+}
+
+function isPhotoField(field) {
+  return field?.type === "photo";
+}
+
+function normalizeFieldType(type) {
+  return type === "photo" ? "photo" : "text";
+}
+
+function createUniqueFieldKey(base) {
+  const existing = new Set(fields.map(field => field.key));
+  if (!existing.has(base)) {
+    return base;
+  }
+
+  let index = 2;
+  while (existing.has(`${base}${index}`)) {
+    index += 1;
+  }
+
+  return `${base}${index}`;
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("图片读取失败"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function getTokenLabel(key) {
@@ -360,12 +393,18 @@ function normalizePlainTextSegment(segment, offset = 0, caretIndex = null) {
 }
 
 function privateFingerprint() {
-  return JSON.stringify(fields.map(({ key, value, color }) => ({ key, value, color })));
+  return JSON.stringify(fields.map(({ key, type, value, color }) => ({
+    key,
+    type: normalizeFieldType(type),
+    value,
+    color
+  })));
 }
 
-function createEmptyPrivateFields(keys = defaultPrivateKeys) {
+function createEmptyPrivateFields(keys = defaultPrivateKeys, types = []) {
   return keys.map((key, index) => ({
     key,
+    type: normalizeFieldType(types[index]),
     value: "",
     color: colors[index % colors.length]
   }));
@@ -374,6 +413,7 @@ function createEmptyPrivateFields(keys = defaultPrivateKeys) {
 function cloneFields(sourceFields) {
   return sourceFields.map((field, index) => ({
     key: field.key,
+    type: normalizeFieldType(field.type),
     value: field.value,
     color: colors[index % colors.length]
   }));
@@ -385,6 +425,7 @@ function applySample(sample, options = {}) {
   publicDraftMarkdown = maskText(sample.publicMarkdown);
   savedMaskedPublicMarkdown = publicDraftMarkdown;
   savedPrivateValues = Object.fromEntries(sample.fields.map(field => [field.key, field.value]));
+  savedPrivateTypes = sample.fields.map(field => normalizeFieldType(field.type));
   if (!preservePrivateLock) {
     privateUnlocked = true;
     hasEncryptedPrivate = false;
@@ -444,15 +485,34 @@ function renderFields() {
 
   fields.forEach((field, index) => {
     const card = document.createElement("div");
-    card.className = "field-card";
+    card.className = `field-card${isPhotoField(field) ? " is-photo" : ""}`;
     card.draggable = !locked;
     card.dataset.index = String(index);
     card.style.setProperty("--field-color", field.color);
 
+    const isPhoto = isPhotoField(field);
+    const hasPhotoValue = Boolean(isPhoto && field.value && field.value.startsWith("data:image/"));
+    const photoPreview = locked
+      ? `<span class="field-photo-empty">已锁定</span>`
+      : hasPhotoValue
+        ? `<img src="${escapeHtml(field.value)}" alt="图片预览">`
+        : `<span class="field-photo-empty">未添加图片</span>`;
+
     card.innerHTML = `
       <div class="drag-handle" title="拖动排序">≡</div>
       <input class="field-key" value="${escapeHtml(field.key)}" aria-label="字段名" ${locked ? "disabled" : ""}>
-      <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "请输入值"}" ${locked ? "disabled" : ""}>
+      ${
+        isPhoto
+          ? `
+            <button class="field-photo-trigger ${hasPhotoValue ? "has-image" : "is-empty"}" type="button" ${locked ? "disabled" : ""} aria-label="${locked ? "已锁定" : "选择图片"}">
+              ${photoPreview}
+            </button>
+            <input class="field-photo-input" type="file" accept="image/*" aria-label="上传图片" ${locked ? "disabled" : ""}>
+          `
+          : `
+            <input class="field-value" value="${escapeHtml(field.value)}" aria-label="字段值" placeholder="${locked ? "已锁定" : "请输入值"}" ${locked ? "disabled" : ""}>
+          `
+      }
       <button class="field-action" data-action="delete" title="删除">×</button>
     `;
 
@@ -469,15 +529,46 @@ function renderFields() {
       renderStatus();
     });
 
-    card.querySelector(".field-value").addEventListener("input", event => {
-      if (locked) return;
-      fields[index].value = event.target.value;
-      if (!aiEditorFocused) {
-        renderAiEditor();
-      }
-      updateOutput();
-      renderStatus();
-    });
+    if (isPhoto) {
+      card.querySelector(".field-photo-trigger").addEventListener("click", () => {
+        if (locked) return;
+        card.querySelector(".field-photo-input")?.click();
+      });
+
+      card.querySelector(".field-photo-input").addEventListener("change", async event => {
+        if (locked) return;
+        const file = event.target.files && event.target.files[0];
+        if (!file) {
+          return;
+        }
+        if (!file.type.startsWith("image/")) {
+          setStatus("请选择图片文件", "warning");
+          return;
+        }
+        try {
+          fields[index].value = await fileToDataUrl(file);
+          event.target.value = "";
+          renderFields();
+          if (!aiEditorFocused) {
+            renderAiEditor();
+          }
+          updateOutput();
+          renderStatus();
+        } catch {
+          setStatus("图片读取失败", "warning");
+        }
+      });
+    } else {
+      card.querySelector(".field-value").addEventListener("input", event => {
+        if (locked) return;
+        fields[index].value = event.target.value;
+        if (!aiEditorFocused) {
+          renderAiEditor();
+        }
+        updateOutput();
+        renderStatus();
+      });
+    }
 
     card.querySelector(".field-action").addEventListener("click", () => {
       if (locked) {
@@ -552,7 +643,7 @@ function unmaskText(text) {
   let output = text;
 
   fields
-    .filter(field => field.key && field.value)
+    .filter(field => field.key && field.value && field.type !== "photo")
     .forEach(field => {
       output = output.replace(new RegExp(escapeRegExp(getTokenLabel(field.key)), "g"), field.value);
     });
@@ -1036,6 +1127,7 @@ async function loadSavedData() {
     appState = stateResponse ? await stateResponse.json() : {};
     hasEncryptedPrivate = Boolean(appState.privateEncrypted);
     savedPrivateKeys = Array.isArray(appState.privateFieldKeys) ? appState.privateFieldKeys : [];
+    savedPrivateTypes = Array.isArray(appState.privateFieldTypes) ? appState.privateFieldTypes : [];
 
     const maskedResponse = await apiRead("/api/public-masked");
     if (maskedResponse) {
@@ -1048,13 +1140,16 @@ async function loadSavedData() {
       const keys = savedPrivateKeys.length
         ? savedPrivateKeys
         : Array.from({ length: appState.privateFieldCount || 0 }, (_, index) => `隐私字段${index + 1}`);
-      fields = createEmptyPrivateFields(keys);
+      fields = createEmptyPrivateFields(keys, savedPrivateTypes);
       privateUnlocked = false;
       privateValuesResolved = false;
       savedPrivateValues = {};
       savedPrivateFingerprint = "";
     } else if (appState.privateClearedAt) {
-      fields = createEmptyPrivateFields(savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys);
+      fields = createEmptyPrivateFields(
+        savedPrivateKeys.length ? savedPrivateKeys : defaultPrivateKeys,
+        savedPrivateTypes
+      );
       privateUnlocked = false;
       privateValuesResolved = false;
       savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
@@ -1088,7 +1183,16 @@ async function loadSavedData() {
 }
 
 function bytesToBase64(bytes) {
-  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  const chunkSize = 0x8000;
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = "";
+
+  for (let index = 0; index < view.length; index += chunkSize) {
+    const chunk = view.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
 }
 
 function base64ToBytes(value) {
@@ -1155,6 +1259,7 @@ async function savePrivateData() {
       encrypted,
       metadata: {
         fieldKeys: fields.map(field => field.key),
+        fieldTypes: fields.map(field => normalizeFieldType(field.type)),
         fieldCount: fields.length
       }
     })
@@ -1170,8 +1275,10 @@ async function savePrivateData() {
   privateValuesResolved = true;
   savedPrivateFingerprint = privateFingerprint();
   savedPrivateKeys = fields.map(field => field.key);
+  savedPrivateTypes = fields.map(field => normalizeFieldType(field.type));
   savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
   await saveMaskedPublicData();
+  renderStatus();
   return true;
 }
 
@@ -1217,9 +1324,13 @@ async function unlockPrivateData() {
         setStatus("没有已保存的隐私信息", "warning");
         return;
       }
-      fields = await decryptPrivateFields(password, await response.json());
+      fields = (await decryptPrivateFields(password, await response.json())).map(field => ({
+        ...field,
+        type: normalizeFieldType(field.type)
+      }));
       savedPrivateFingerprint = privateFingerprint();
       savedPrivateKeys = fields.map(field => field.key);
+      savedPrivateTypes = fields.map(field => normalizeFieldType(field.type));
       savedPrivateValues = Object.fromEntries(fields.map(field => [field.key, field.value]));
     }
     privateUnlocked = true;
@@ -1336,6 +1447,7 @@ async function saveMaskedPublicData() {
 
   appState = await response.json();
   savedMaskedPublicMarkdown = payload;
+  renderStatus();
 }
 
 addFieldButton.addEventListener("click", () => {
@@ -1345,6 +1457,25 @@ addFieldButton.addEventListener("click", () => {
   }
   fields.push({
     key: "新字段",
+    type: "text",
+    value: "",
+    color: colors[fields.length % colors.length]
+  });
+  renderFields();
+  renderAiEditor();
+  updateOutput();
+  renderStatus();
+});
+
+addImageButton.addEventListener("click", () => {
+  if (hasEncryptedPrivate && !privateUnlocked) {
+    setStatus("请先用密钥解锁隐私信息", "warning");
+    return;
+  }
+
+  fields.push({
+    key: createUniqueFieldKey("图片"),
+    type: "photo",
     value: "",
     color: colors[fields.length % colors.length]
   });

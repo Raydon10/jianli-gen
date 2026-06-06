@@ -134,6 +134,7 @@ async function handleApi(request, response) {
       privateEncrypted: true,
       privateCipherHash: hash(JSON.stringify(encrypted)),
       privateFieldKeys: Array.isArray(metadata.fieldKeys) ? metadata.fieldKeys : [],
+      privateFieldTypes: Array.isArray(metadata.fieldTypes) ? metadata.fieldTypes : [],
       privateFieldCount: Number.isInteger(metadata.fieldCount) ? metadata.fieldCount : 0
     });
     send(response, 200, JSON.stringify(state), "application/json; charset=utf-8");
@@ -150,6 +151,7 @@ async function handleApi(request, response) {
       privateEncrypted: false,
       privateCipherHash: null,
       privateFieldKeys: defaultPrivateKeys,
+      privateFieldTypes: defaultPrivateKeys.map(() => "text"),
       privateFieldCount: defaultPrivateKeys.length,
       privateClearedAt: new Date().toISOString()
     });
