@@ -403,7 +403,7 @@ textarea {
   background: var(--soft);
   color: var(--text);
   white-space: pre-wrap;
-  line-height: 1.58;
+  line-height: 1.38;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
 }
@@ -411,6 +411,14 @@ textarea {
 .ai-editor {
   outline: none;
   cursor: text;
+}
+
+.ai-editor p {
+  margin: 0 0 2px;
+}
+
+.ai-editor p:last-child {
+  margin-bottom: 0;
 }
 
 .ai-editor:focus {
