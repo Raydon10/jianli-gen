@@ -1102,6 +1102,16 @@ textarea {
     min-height: 420px;
   }
 
+  .left-rail,
+  .workspace-panel {
+    max-height: min(156vh, 1720px);
+  }
+
+  .public-panel,
+  .privacy-panel {
+    max-height: min(78vh, 860px);
+  }
+
   .workspace-panel {
     min-height: 720px;
   }
