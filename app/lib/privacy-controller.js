@@ -25,7 +25,7 @@ import {
 
 export function setupPrivacyController(state, api) {
   api.updateDocumentTitle = function updateDocumentTitle() {
-    const baseTitle = "简历 Gen";
+    const baseTitle = "简历 Gen - 保护隐私的 Skill";
     if (!(state.privateUnlocked || state.privateMode === "plain")) {
       document.title = baseTitle;
       return;
