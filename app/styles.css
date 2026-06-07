@@ -121,6 +121,18 @@ h2 {
   font-weight: 750;
 }
 
+.app-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-title-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
 .icon-button,
 .text-button,
 .field-action {

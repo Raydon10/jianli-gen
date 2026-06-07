@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>简历 Gen</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2330b24a'/%3E%3Cstop offset='1' stop-color='%231d7f31'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M256 12 64 92c-9 4-15 13-15 24v126c0 115 77 221 197 258 6 2 12 2 18 0 120-37 197-143 197-258V116c0-11-6-20-15-24L256 12z' fill='url(%23g)'/%3E%3Cpath transform='translate(0 -16)' d='M256 153c42 0 76 34 76 76 0 27-14 51-35 65l20 96c4 19-10 38-30 38h-62c-20 0-34-19-30-38l20-96c-21-14-35-38-35-65 0-42 34-76 76-76z' fill='%23fff'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="/app/styles.css">
   </head>
   <body>
@@ -11,7 +12,19 @@
       <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
       <section class="panel left-rail">
         <div class="panel-header">
-          <h2>简历 Gen - 保护隐私的 Skill</h2>
+          <h2 class="app-title">
+            <svg class="app-title-icon" viewBox="0 0 512 512" aria-hidden="true">
+              <defs>
+                <linearGradient id="appTitleShield" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#30b24a"></stop>
+                  <stop offset="1" stop-color="#1d7f31"></stop>
+                </linearGradient>
+              </defs>
+              <path d="M256 12 64 92c-9 4-15 13-15 24v126c0 115 77 221 197 258 6 2 12 2 18 0 120-37 197-143 197-258V116c0-11-6-20-15-24L256 12z" fill="url(#appTitleShield)"/>
+              <path transform="translate(0 -16)" d="M256 153c42 0 76 34 76 76 0 27-14 51-35 65l20 96c4 19-10 38-30 38h-62c-20 0-34-19-30-38l20-96c-21-14-35-38-35-65 0-42 34-76 76-76z" fill="#fff"/>
+            </svg>
+            <span>简历 Gen - 保护隐私的 Skill</span>
+          </h2>
           <div class="header-actions">
             <span class="save-hint" id="saveHint" hidden>保存后再让 Skill 生成简历</span>
             <button class="text-button" id="saveAll">保存</button>

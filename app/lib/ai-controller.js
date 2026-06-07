@@ -973,6 +973,8 @@ export function setupAiController(state, api) {
     state.aiOutputVersion = version || state.aiOutputVersion;
     state.pendingAiOutputVersion = "";
     state.aiOutputSourceHtml = html;
+    state.currentResumeResolved = false;
+    state.currentResumeRenderedValues = {};
     api.updateLatestResumeButton?.();
     renderAiOutputPreview();
   };
