@@ -60,6 +60,7 @@ export function setupAiController(state, api) {
     const previewHtml = prepareResumePreviewHtml(html);
     state.currentResumeHtml = previewHtml;
     state.resumePreview.innerHTML = `
+      ${options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
       <div class="resume-paper">
         <iframe class="resume-frame" title="${escapeHtml(title)}" sandbox srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>
@@ -127,7 +128,9 @@ export function setupAiController(state, api) {
 
   function renderAiOutputPreview() {
     if (state.aiOutputSourceHtml) {
-      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览");
+      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览", {
+        privateLockedHint: state.privateMode === "encrypted" && !state.privateUnlocked
+      });
     } else if (!state.aiOutputVersion) {
       renderResumeEmptyState();
     }
@@ -677,7 +680,7 @@ export function setupAiController(state, api) {
     state.pendingAiOutputVersion = "";
     state.aiOutputSourceHtml = html;
     api.updateLatestResumeButton?.();
-    renderResumeFrame(resolvePrivateTokens(html), "AI 生成简历预览");
+    renderAiOutputPreview();
   };
 
   api.updateLatestResumeButton = function updateLatestResumeButton() {
