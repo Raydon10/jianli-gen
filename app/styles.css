@@ -765,6 +765,15 @@ textarea {
   background: #e8ecf1;
 }
 
+.resume-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
+}
+
 .template-section {
   border-top: 1px solid var(--line);
   padding: 8px 10px;

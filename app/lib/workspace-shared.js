@@ -81,6 +81,8 @@ export function createWorkspaceState() {
     aiNormalizeTimer: null,
     aiEditor: null,
     aiRenderSignature: "",
+    aiOutputVersion: "",
+    aiOutputPollTimer: null,
     dragSourceIndex: null,
     dragTargetIndex: null,
     dragTargetCard: null,

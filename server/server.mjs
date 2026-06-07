@@ -8,6 +8,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const dataDir = join(root, "resume-data");
 const templateDir = join(dataDir, "简历模版");
 const publicMaskedPath = join(dataDir, "ai-input.md");
+const aiOutputPath = join(dataDir, "ai-output.html");
 const legacyAiInputPath = join(dataDir, "ai.md");
 const legacyPublicMaskedPath = join(dataDir, "public.masked.md");
 const privatePath = join(dataDir, "private.enc.json");
@@ -121,6 +122,29 @@ async function handleApi(request, response) {
       file
     }));
     send(response, 200, JSON.stringify({ templates }), "application/json; charset=utf-8");
+    return true;
+  }
+
+  if (request.url === "/api/ai-output/meta" && request.method === "GET") {
+    if (!(await exists(aiOutputPath))) {
+      send(response, 200, JSON.stringify({ exists: false }), "application/json; charset=utf-8");
+      return true;
+    }
+    const info = await stat(aiOutputPath);
+    send(response, 200, JSON.stringify({
+      exists: true,
+      version: String(Math.floor(info.mtimeMs)),
+      updatedAt: info.mtime.toISOString()
+    }), "application/json; charset=utf-8");
+    return true;
+  }
+
+  if (request.url === "/api/ai-output" && request.method === "GET") {
+    if (!(await exists(aiOutputPath))) {
+      send(response, 404, "Not found");
+      return true;
+    }
+    send(response, 200, await readFile(aiOutputPath, "utf8"), "text/html; charset=utf-8");
     return true;
   }
 

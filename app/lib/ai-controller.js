@@ -6,13 +6,9 @@ import {
   getTokenLabel,
   getDisplayTokenLabel,
   getTokenStorageLabel,
-  parseTokenLabel,
-  maskText,
-  unmaskText,
-  getPublicBullets
+  parseTokenLabel
 } from "./text.js";
 import {
-  getFieldColorMap,
   getTokenMappings,
   privateFingerprint
 } from "./workspace-shared.js";
@@ -29,7 +25,11 @@ export function setupAiController(state, api) {
   function prepareResumePreviewHtml(html) {
     const previewStyle = `<style>
       @page { size: A4; margin: 0; }
-      * { box-sizing: border-box !important; }
+      * {
+        box-sizing: border-box !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
+      }
       html, body {
         width: 794px !important;
         min-width: 794px !important;
@@ -67,37 +67,51 @@ export function setupAiController(state, api) {
     api.updateResumePreviewScale?.();
   }
 
-  function buildDefaultResumeHtml(body) {
-    return `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <style>
-    @page { size: A4; margin: 0; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #fff; color: #20242a; font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
-    .resume { width: 794px; min-height: 1123px; padding: 42px 48px; background: #fff; line-height: 1.5; }
-    .resume-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 22px; }
-    .resume-name { font-size: 28px; font-weight: 800; }
-    .resume-title { margin-top: 5px; color: #4b5563; font-size: 14px; }
-    .resume-contact { color: #4b5563; font-size: 12px; line-height: 1.65; text-align: right; }
-    .entry-heading { display: flex; justify-content: space-between; gap: 16px; margin: 12px 0 5px; }
-    .entry-main { font-weight: 760; }
-    .entry-meta { color: #5f6875; font-size: 12px; white-space: nowrap; }
-    h1 { font-size: 28px; margin-bottom: 4px; }
-    h2 { margin: 22px 0 8px; padding-bottom: 5px; border-bottom: 1px solid #b8c0cc; font-size: 16px; }
-    h3 { margin: 14px 0 6px; font-size: 14px; }
-    p { margin: 7px 0; }
-    ul { margin: 7px 0 12px 20px; padding: 0; }
-    li { margin: 4px 0; }
-    strong { font-weight: 750; }
-    a { color: inherit; }
-  </style>
-</head>
-<body>
-  <article class="resume">${body}</article>
-</body>
-</html>`;
+  api.printCurrentResume = function printCurrentResume() {
+    if (!state.currentResumeHtml) {
+      api.setStatus("请先用 Skill 生成简历", "warning");
+      return;
+    }
+    const printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.left = "-10000px";
+    printFrame.style.top = "0";
+    printFrame.style.width = "794px";
+    printFrame.style.height = "1123px";
+    printFrame.style.border = "0";
+    document.body.appendChild(printFrame);
+    const printDocument = printFrame.contentDocument;
+    if (!printDocument) {
+      printFrame.remove();
+      api.setStatus("导出 PDF 失败", "warning");
+      return;
+    }
+    printDocument.open();
+    printDocument.write(state.currentResumeHtml);
+    printDocument.close();
+    window.setTimeout(() => {
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+      window.setTimeout(() => printFrame.remove(), 1000);
+    }, 120);
+  };
+
+  function resolvePrivateTokens(html) {
+    if (!state.privateUnlocked || !state.privateValuesResolved) {
+      return html;
+    }
+    return String(html || "").replace(/\{\{([^{}]+)\}\}/g, (token, key) => {
+      const field = state.fields.find(item => item.key === String(key).trim());
+      return field?.value || token;
+    });
+  }
+
+  function renderResumeEmptyState() {
+    if (!state.resumePreview || state.aiOutputVersion) {
+      return;
+    }
+    state.currentResumeHtml = "";
+    state.resumePreview.innerHTML = `<div class="resume-empty-state">请用 Skill 生成简历</div>`;
   }
 
   function clearTemplateSelection() {
@@ -493,7 +507,11 @@ export function setupAiController(state, api) {
   };
 
   api.updateOutput = function updateOutput() {
-    api.generateResumePreview();
+    if (state.aiOutputSourceHtml) {
+      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览");
+    } else if (!state.aiOutputVersion) {
+      api.generateResumePreview();
+    }
   };
 
   api.updateResumePreviewScale = function updateResumePreviewScale() {
@@ -508,61 +526,9 @@ export function setupAiController(state, api) {
     paper.style.setProperty("--paper-scale", String(scale || 1));
   };
 
-  api.readPrivateValue = function readPrivateValue(key, fallback = "") {
-    return state.fields.find(field => field.key === key)?.value || fallback;
-  };
-
   api.generateResumePreview = function generateResumePreview() {
     clearTemplateSelection();
-    const previewText = state.aiEditor
-      ? state.aiEditor.serializeResolved?.(state.privateUnlocked && state.privateValuesResolved) || state.publicDraftMarkdown
-      : state.privateUnlocked && state.privateValuesResolved
-        ? unmaskText(state.publicDraftMarkdown, state.fields)
-        : maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields));
-    const bullets = getPublicBullets(previewText || state.savedMaskedPublicMarkdown || "");
-    const name = api.readPrivateValue("姓名", "候选人");
-    const city = api.readPrivateValue("城市", "城市");
-    const phone = api.readPrivateValue("手机", "手机");
-    const email = api.readPrivateValue("邮箱", "邮箱");
-    const company = api.readPrivateValue("公司", "公司");
-    const bulletHtml = bullets.map(item => `<li>${escapeHtml(item)}</li>`).join("");
-
-    const body = `
-      <header class="resume-header">
-        <div>
-          <div class="resume-name">${escapeHtml(name)}</div>
-          <div class="resume-title">后端工程师</div>
-        </div>
-        <div class="resume-contact">
-          <div>${escapeHtml(city)}</div>
-          <div>${escapeHtml(phone)}</div>
-          <div>${escapeHtml(email)}</div>
-        </div>
-      </header>
-
-      <section>
-        <h2>个人总结</h2>
-        <p>具备后端系统设计、性能优化和业务交付经验，能够围绕稳定性、可维护性和产品目标推进工程实现。</p>
-      </section>
-
-      <section>
-        <h2>工作经历</h2>
-        <div class="entry-heading">
-          <div>
-            <div class="entry-main">${escapeHtml(company)}｜后端工程师</div>
-            <div>核心业务系统与数据服务</div>
-          </div>
-          <div class="entry-meta">2021.06 - 至今</div>
-        </div>
-        <ul>${bulletHtml}</ul>
-      </section>
-
-      <section>
-        <h2>技能</h2>
-        <p>Java / Spring Boot / MySQL / Redis / Kafka / REST API / Docker / Linux</p>
-      </section>
-    `;
-    renderResumeFrame(buildDefaultResumeHtml(body), "简历预览");
+    renderResumeEmptyState();
   };
 
   api.renderTemplateList = function renderTemplateList(templates = []) {
@@ -653,7 +619,11 @@ export function setupAiController(state, api) {
     }
     if (state.selectedTemplateId === templateId) {
       clearTemplateSelection();
-      api.generateResumePreview();
+      if (state.aiOutputVersion) {
+        api.loadAiOutput(state.aiOutputVersion);
+      } else {
+        api.generateResumePreview();
+      }
       return;
     }
     try {
@@ -670,5 +640,53 @@ export function setupAiController(state, api) {
     } catch {
       api.setStatus("简历模版读取失败", "warning");
     }
+  };
+
+  api.loadAiOutput = async function loadAiOutput(version = "") {
+    const response = await fetch("/api/ai-output");
+    if (!response.ok) {
+      throw new Error("AI 生成简历读取失败");
+    }
+    const html = await response.text();
+    clearTemplateSelection();
+    state.aiOutputVersion = version || state.aiOutputVersion;
+    state.aiOutputSourceHtml = html;
+    renderResumeFrame(resolvePrivateTokens(html), "AI 生成简历预览");
+  };
+
+  api.checkAiOutputUpdate = async function checkAiOutputUpdate({ initial = false } = {}) {
+    try {
+      const response = await fetch("/api/ai-output/meta");
+      if (!response.ok) {
+        return;
+      }
+      const meta = await response.json();
+      if (!meta.exists || !meta.version) {
+        return;
+      }
+      if (!state.aiOutputVersion) {
+        state.aiOutputVersion = meta.version;
+        if (initial) {
+          await api.loadAiOutput(meta.version);
+        }
+        return;
+      }
+      if (meta.version !== state.aiOutputVersion) {
+        await api.loadAiOutput(meta.version);
+        api.setStatus("AI 生成简历已更新", "ok");
+      }
+    } catch {
+      // 外部 Skill 可能尚未生成 ai-output.html，静默等待下一次轮询。
+    }
+  };
+
+  api.startAiOutputPolling = function startAiOutputPolling() {
+    api.checkAiOutputUpdate({ initial: true });
+    if (state.aiOutputPollTimer) {
+      clearInterval(state.aiOutputPollTimer);
+    }
+    state.aiOutputPollTimer = window.setInterval(() => {
+      api.checkAiOutputUpdate();
+    }, 5000);
   };
 }

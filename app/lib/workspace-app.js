@@ -51,8 +51,7 @@ export function initJianliApp() {
   state.addImageButton.addEventListener("click", () => api.addImage());
   state.regeneratePublicButton.addEventListener("click", () => api.regeneratePublicExample());
   state.printButton.addEventListener("click", () => {
-    api.generateResumePreview();
-    window.print();
+    api.printCurrentResume?.();
   });
   state.unlockPrivateButton.addEventListener("click", () => {
     if (state.privateMode === "plain") {
@@ -147,5 +146,6 @@ export function initJianliApp() {
   api.generateResumePreview();
   api.renderStatus();
   api.loadResumeTemplates?.();
+  api.startAiOutputPolling?.();
   api.loadSavedData();
 }
