@@ -1,39 +1,39 @@
-# File Contract
+# 文件约定
 
-Use these paths relative to the project root.
+路径都相对项目根目录。
 
-## Read
+## 读取
 
 - `简历数据/脱敏简历/Skill读取的脱敏简历.md`
-  - User-authored masked resume input for this Skill.
-  - May contain variables such as `{{姓名}}`, `{{照片}}`, `{{手机}}`, `{{邮箱}}`, `{{公司}}`.
-  - May contain tutorial comments starting with `//`; ignore those as instructions.
+  - Skill 读取的脱敏简历输入文件。
+  - 可以包含 `{{姓名}}`、`{{照片}}`、`{{手机}}`、`{{邮箱}}`、`{{公司}}` 这类变量。
+  - 也可能包含以 `//` 开头的教程备注，生成时可忽略。
 
 - `简历数据/简历模版/模板1.html`
 - `简历数据/简历模版/模板2.html`
 - `简历数据/简历模版/模板3.html`
-  - Style references only.
+  - 仅作为样式参考。
 
-## Write
+## 写入
 
 - `简历数据/脱敏简历/Skill生成的简历.html`
-  - The only generated resume output.
-  - Overwrite this file on each generation.
-  - The app watches this file and prompts the user with `查看最新`.
+  - 唯一的生成结果文件。
+  - 每次生成都覆盖这份文件。
+  - 应用会监听它的变化，并提示用户查看最新结果。
 
-## Do Not Read For Normal Generation
+## 正常生成时不要读取
 
 - `简历数据/隐私信息/隐私信息.json`
 - `简历数据/隐私信息/state.json`
 
-These files may contain privacy state or encrypted/private data. The app handles privacy replacement in preview when the user unlocks locally.
+这些文件可能包含隐私状态或加密数据。网页会在本地解锁后处理隐私替换。
 
-## Local App API Names
+## 本地接口名称
 
-The app uses:
+应用使用以下接口：
 
 - `GET/PUT /api/skill-masked-resume`
 - `GET /api/skill-output`
 - `GET /api/skill-output/meta`
 
-For normal generation, prefer direct filesystem reads/writes over HTTP. Use HTTP only for troubleshooting the running app.
+正常生成时优先直接读写文件，只有排查运行中的网页问题时才考虑使用 HTTP。

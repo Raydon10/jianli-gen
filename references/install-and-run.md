@@ -1,30 +1,30 @@
-# Install And Run
+# 安装与启动
 
-Use this when the user asks about installation, first use, or startup.
+当用户询问安装、首次使用或启动相关问题时，使用这个说明。
 
-## After GitHub Skill Installation
+## GitHub Skill 安装后
 
-1. Install app dependencies:
+1. 安装应用依赖：
    - `cd app`
    - `npm install`
    - `npm run build`
-2. Start the local server from the project root:
+2. 从项目根目录启动本地服务：
    - `node server/server.mjs`
-3. Open the app:
+3. 打开应用：
    - `http://127.0.0.1:8790`
 
-## First User Setup
+## 首次使用
 
-Tell the user:
+告诉用户：
 
-1. Open the browser app.
-2. In `Skill 读取的脱敏简历`, enter or paste the resume that Skill should reference.
-3. In `隐私信息`, fill private fields such as name, photo, phone, email, company.
-4. Save before asking the Skill to generate.
-5. Optionally choose a resume template visually in the app, then mention the template name when asking the Skill.
+1. 打开浏览器里的应用。
+2. 在 `Skill 读取的脱敏简历` 中输入或粘贴要给 Skill 参考的简历。
+3. 在 `隐私信息` 中填写姓名、照片、手机、邮箱、公司等字段。
+4. 保存后再让 Skill 生成简历。
+5. 如果需要，可以在页面里先选择一个模板，再在提问时说明模板名称。
 
-## Important
+## 注意事项
 
-- The Skill must not open or inspect the browser page.
-- If the input file is empty, ask the user to finish setup in the app and save.
-- The generated output appears in the app after `Skill生成的简历.html` changes.
+- Skill 不要打开或查看浏览器页面。
+- 如果输入文件为空，先让用户回到应用里补全并保存。
+- 当 `Skill生成的简历.html` 发生变化后，应用里会出现最新结果。

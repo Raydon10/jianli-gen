@@ -1,31 +1,31 @@
-# Templates
+# 模板
 
-Use this only for template selection or template management requests.
+仅在需要选择模板或管理模板时使用。
 
-## Selecting A Template
+## 选择模板
 
-Templates live in:
+模板位于：
 
 - `简历数据/简历模版/模板1.html`
 - `简历数据/简历模版/模板2.html`
 - `简历数据/简历模版/模板3.html`
 
-If the user says "use 模板3", read `模板3.html` and use it as style/layout reference.
+如果用户说“使用模板3”，就读取 `模板3.html`，并把它作为样式和布局参考。
 
-If no template is specified, use `模板1.html`.
+如果用户没有指定模板，默认使用 `模板1.html`。
 
-## Creating Templates
+## 创建模板
 
-When creating a new template:
+创建新模板时：
 
-- Name it `模板N.html`.
-- Keep it standalone HTML with inline CSS.
-- Use realistic example content, not masked variables.
-- Keep A4 layout compatible with app preview.
-- Do not write private user data into templates.
+- 命名为 `模板N.html`。
+- 保持为独立 HTML，并写内联 CSS。
+- 使用真实感示例内容，不要放脱敏变量。
+- 保持与应用预览的 A4 布局兼容。
+- 不要把用户的隐私数据写进模板。
 
-## Deleting Templates
+## 删除模板
 
-Only delete a template when the user explicitly asks.
+只有在用户明确要求时才删除模板。
 
-Do not delete all templates. The app expects at least one usable template for a good first-run experience.
+不要删掉全部模板。应用至少需要保留一个可用模板，才能保证首次使用体验正常。

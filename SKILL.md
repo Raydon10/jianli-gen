@@ -3,57 +3,57 @@ name: 简历 Gen
 description: 保护隐私的简历 Skill。隐私信息加密管理，轻松生成专业简历。
 ---
 
-# Jianli Gen
+# 简历 Gen
 
-Generate the latest resume HTML for the Jianli Gen local app. The app stores user input in files; this Skill must work through those files and never inspect the browser UI.
+基于脱敏简历和模板生成最新的简历 HTML。这个 Skill 只通过文件工作，不查看浏览器页面。
 
-## Privacy Boundary
+## 隐私边界
 
-- Do not use browser, Chrome, screenshot, or DOM tools to inspect the Jianli Gen page.
-- Do not ask to unlock privacy information.
-- Do not read `简历数据/隐私信息/隐私信息.json` unless the user explicitly asks for file troubleshooting. Never decrypt or infer private values.
-- Generate from `简历数据/脱敏简历/Skill读取的脱敏简历.md`, which should contain masked variables such as `{{姓名}}`.
-- Preserve masked variables in output. Do not replace `{{字段名}}` with guessed personal data.
+- 不使用 browser、Chrome、screenshot 或 DOM 工具查看 `简历 Gen` 页面。
+- 不要求用户解锁隐私信息。
+- 除非用户明确要求排查文件问题，否则不要读取 `简历数据/隐私信息/隐私信息.json`。
+- 只从 `简历数据/脱敏简历/Skill读取的脱敏简历.md` 生成内容，这个文件里应保留 `{{姓名}}` 这类脱敏变量。
+- 输出时保留脱敏变量，不要替换成猜测的真实信息。
 
-## Normal Flow
+## 标准流程
 
-1. Locate the project root. If needed, read `references/files.md`.
-2. If first use or setup is requested, read `references/install-and-run.md`.
-3. Ensure the local app is available or tell the user to open it and fill:
+1. 定位项目根目录；如有需要，先看 `references/files.md`。
+2. 如果是首次使用、安装或启动相关问题，先看 `references/install-and-run.md`。
+3. 如果本地服务已经在运行，直接继续使用；如果启动时报端口占用，说明旧服务还在运行，先停掉旧服务再重试。
+4. 确认用户已经在网页里填好以下内容：
    - `Skill 读取的脱敏简历`
    - `隐私信息`
-   - a template choice if desired
-4. Read `简历数据/脱敏简历/Skill读取的脱敏简历.md`.
-5. If the file is missing or empty, stop and tell the user to open the browser app, enter or paste the resume, save it, then ask again.
-6. Choose a template:
-   - Use the user-specified template when provided.
-   - Otherwise use `简历数据/简历模版/模板1.html` as the default style reference.
-   - For template details or management, read `references/templates.md`.
-7. Generate a complete standalone A4-ready HTML resume.
-8. Write only the latest output to `简历数据/脱敏简历/Skill生成的简历.html`.
-9. Tell the user to return to the browser app and click `查看最新` if it appears, then preview/export there.
+   - 需要的话再选一个模板
+5. 读取 `简历数据/脱敏简历/Skill读取的脱敏简历.md`。
+6. 如果这个文件缺失或为空，先告诉用户回到网页里补全、保存，再继续。
+7. 选择模板：
+   - 用户指定哪个模板，就用哪个模板
+   - 如果用户没有指定，默认用 `模板1`
+   - 需要了解模板细节时，读 `references/templates.md`
+8. 生成一份完整、可直接预览的 A4 简历 HTML。
+9. 只写入最新结果，不保留历史版本。
+10. 告诉用户回到网页里点击 `查看最新`，然后在网页里预览或导出。
 
-## Generation Rules
+## 生成规则
 
-- Treat `Skill读取的脱敏简历.md` as the source of truth for resume content.
-- Use the selected template only as style/layout reference; do not copy example personal content from templates.
-- Keep all masked variables exactly as written, including photo variables like `{{照片}}`.
-- If the masked resume contains `//` tutorial notes, ignore them in the final resume unless they clearly belong to resume content.
-- Output must be a full HTML document with inline CSS and A4 dimensions suitable for the app preview.
-- Prefer clean, professional resume language. Preserve the user's role target and facts from the masked resume.
-- Generate one latest file only; do not create history files.
+- 把 `Skill读取的脱敏简历.md` 当作简历内容的唯一来源。
+- 模板只作为样式和布局参考，不直接照搬模板里的示例人物内容。
+- `{{照片}}`、`{{姓名}}`、`{{手机}}` 这类脱敏变量要原样保留。
+- 如果脱敏简历里有 `//` 备注，只在它明显是说明文字时忽略。
+- 输出必须是完整 HTML，带内联 CSS，并保持 A4 版式。
+- 语言尽量自然、专业，保留用户给出的岗位方向和事实信息。
 
-## Validation
+## 校验
 
-After writing `Skill生成的简历.html`:
+写完 `Skill生成的简历.html` 之后：
 
-- Confirm the file exists and is non-empty.
-- Confirm it contains a full HTML document.
-- Confirm obvious masked variables are preserved.
-- Do not open the browser to verify privacy-sensitive rendering.
+- 确认文件存在且非空。
+- 确认它是完整 HTML 文档。
+- 确认脱敏变量还在。
+- 不要打开浏览器去检查隐私内容的渲染结果。
 
-## Low-Frequency References
+## 低频参考
 
-- Installation and local app startup: `references/install-and-run.md`
-- File contract and paths: `references/files.md`
-- Template selection, creation, deletion: `references/templates.md`
+- 安装和本地启动：`references/install-and-run.md`
+- 文件路径约定：`references/files.md`
+- 模板选择和管理：`references/templates.md`
