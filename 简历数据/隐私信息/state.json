@@ -1,10 +1,10 @@
 {
   "publicSavedAt": "2026-06-05T14:40:41.435Z",
   "publicHash": "b4441f1bcdc8cebe7baeefbe4bd19bb512dac41606b906a671547adf1402d97e",
-  "updatedAt": "2026-06-07T06:37:56.143Z",
-  "privateSavedAt": "2026-06-07T06:37:56.132Z",
+  "updatedAt": "2026-06-07T06:43:38.273Z",
+  "privateSavedAt": "2026-06-07T06:43:38.263Z",
   "privateEncrypted": true,
-  "privateCipherHash": "758f5c05496a7b70333eb3fab905a14b3e82711b47e02d4dfb3edad950af51e1",
+  "privateCipherHash": "82fe6f9ea5bccd0622f7be636eb5a81fa9ded2cbff4ac8d49b9939c8c2b1d2dc",
   "privateFieldKeys": [
     "姓名",
     "年龄",
@@ -12,11 +12,11 @@
     "邮箱",
     "城市",
     "公司",
-    "图片"
+    "照片"
   ],
   "privateFieldCount": 7,
   "privateClearedAt": "2026-06-06T12:40:15.796Z",
-  "publicMaskedSavedAt": "2026-06-07T06:37:56.143Z",
+  "publicMaskedSavedAt": "2026-06-07T06:43:38.273Z",
   "publicMaskedHash": "526a2c4766e5e760c8f0f9449c4ed91b05f02f26710426a37bc8be6bc4fee873",
   "privateFieldTypes": [
     "text",

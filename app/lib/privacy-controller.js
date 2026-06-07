@@ -237,10 +237,10 @@ export function setupPrivacyController(state, api) {
       state.unlockPrivateButton.disabled = false;
     }
     if (state.addFieldButton) {
-      state.addFieldButton.disabled = !canEditPrivate;
+      state.addFieldButton.disabled = false;
     }
     if (state.addImageButton) {
-      state.addImageButton.disabled = !canEditPrivate;
+      state.addImageButton.disabled = false;
     }
     if (state.saveAllButton) {
       state.saveAllButton.disabled = false;

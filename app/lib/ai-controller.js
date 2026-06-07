@@ -129,7 +129,7 @@ export function setupAiController(state, api) {
   function renderAiOutputPreview() {
     if (state.aiOutputSourceHtml) {
       renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览", {
-        privateLockedHint: state.privateMode === "encrypted" && !state.privateUnlocked
+        privateLockedHint: !state.privateUnlocked
       });
     } else if (!state.aiOutputVersion) {
       renderResumeEmptyState();
