@@ -2,61 +2,447 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>AI 布道师 - 紧凑单页</title>
+  <title>模板3 - 深绿氛围</title>
   <style>
-    body { margin: 0; background: #f4f4f2; color: #222; font-family: Georgia, "Times New Roman", "Songti SC", serif; }
-    .resume { width: 794px; min-height: 1123px; margin: 0 auto; padding: 42px 54px; background: #fffdf8; }
-    header { text-align: center; padding-bottom: 18px; border-bottom: 1px solid #222; }
-    h1 { margin: 0; font-size: 34px; font-weight: 700; }
-    .role { margin-top: 8px; font-size: 15px; }
-    .contact { margin-top: 7px; color: #555; font-size: 12px; }
-    section { margin-top: 21px; }
-    h2 { margin: 0 0 8px; font-size: 14px; letter-spacing: 0; text-transform: uppercase; }
-    p { margin: 0; line-height: 1.62; }
-    .entry { margin-top: 10px; }
-    .entry-head { display: flex; justify-content: space-between; gap: 16px; font-weight: 700; }
-    .meta { color: #666; font-size: 12px; white-space: nowrap; }
-    ul { margin: 7px 0 0 18px; padding: 0; }
-    li { margin: 4px 0; line-height: 1.52; }
-    .skills { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; font-size: 13px; }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    html, body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(53, 154, 52, 0.5) 0, rgba(53, 154, 52, 0.15) 22%, transparent 45%),
+        radial-gradient(circle at 10% 12%, rgba(33, 170, 52, 0.2) 0, transparent 24%),
+        #071006;
+      color: #f4f7f1;
+      font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .resume {
+      width: 794px;
+      min-height: 1123px;
+      margin: 0 auto;
+      padding: 28px 28px 34px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(42, 167, 53, 0.5) 0, rgba(42, 167, 53, 0.15) 18%, transparent 40%),
+        linear-gradient(180deg, #071106 0%, #071006 100%);
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+    }
+
+    .resume::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(18, 197, 60, 0.07) 0, rgba(18, 197, 60, 0) 20%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0.18) 100%);
+      pointer-events: none;
+    }
+
+    .top {
+      position: relative;
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 14px;
+      align-items: start;
+      z-index: 1;
+    }
+
+    .photo {
+      width: 118px;
+      height: 118px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #5b6169;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.28);
+      display: grid;
+      place-items: center;
+      color: #e6ebee;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+
+    .photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .name {
+      margin: 0;
+      color: #00f04d;
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      padding-top: 4px;
+    }
+
+    .meta-box {
+      position: relative;
+      margin-top: 8px;
+      padding: 10px 14px;
+      border: 1px solid rgba(73, 255, 111, 0.28);
+      border-radius: 10px;
+      background: rgba(12, 24, 11, 0.72);
+      color: #e4ebe1;
+      z-index: 1;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      align-items: center;
+    }
+
+    .meta-row span {
+      white-space: nowrap;
+    }
+
+    .meta-row span + span::before {
+      content: " | ";
+      color: rgba(255,255,255,0.45);
+      margin: 0 4px;
+    }
+
+    .section {
+      position: relative;
+      z-index: 1;
+      margin-top: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .section-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #2f7d2d 0, #0d3e0d 100%);
+      border: 1px solid rgba(91, 255, 127, 0.35);
+      display: grid;
+      place-items: center;
+      color: #f4ffef;
+      font-size: 14px;
+      font-weight: 800;
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.18) inset;
+    }
+
+    .section-title {
+      color: #ffffff;
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .section-line {
+      height: 1px;
+      flex: 1;
+      background: rgba(255,255,255,0.18);
+    }
+
+    .section-body {
+      font-size: 13px;
+      line-height: 1.72;
+      color: #edf3ea;
+    }
+
+    .entry {
+      margin-top: 10px;
+    }
+
+    .entry-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: baseline;
+      font-weight: 800;
+    }
+
+    .entry-title {
+      color: #ffffff;
+      font-size: 14px;
+    }
+
+    .entry-subtitle {
+      color: #f2f7ef;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .entry-meta {
+      color: rgba(255,255,255,0.72);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .entry-note {
+      margin-top: 4px;
+      color: rgba(242,247,239,0.92);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    ul, ol {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 4px 0;
+      line-height: 1.62;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 18px;
+      margin-top: 6px;
+    }
+
+    .skill-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px 18px;
+      margin-top: 4px;
+    }
+
+    .skill-card {
+      min-height: 86px;
+      padding-top: 4px;
+    }
+
+    .skill-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .skill-bar {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.22);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .skill-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #18ff4a 0%, #0ee13e 100%);
+    }
+
+    .tip-box {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.12);
+      color: rgba(245,250,241,0.92);
+      font-size: 12px;
+      line-height: 1.65;
+    }
   </style>
 </head>
 <body>
   <article class="resume">
-    <header>
-      <h1>林知远</h1>
-      <div class="role">AI 布道师 · 企业 AI 采用与培训</div>
-      <div class="contact">上海 · 138 0000 2468 · lin.zhiyuan@example.com</div>
+    <header class="top">
+      <div class="photo">照片</div>
+      <div>
+        <h1 class="name">大空翼</h1>
+        <div class="meta-box">
+          <div class="meta-row">
+            <span>男</span>
+            <span>生日：1994/8</span>
+            <span>日本</span>
+            <span>前锋 / 进攻核心 / 队长</span>
+          </div>
+          <div class="meta-row">
+            <span>电话：16666666666</span>
+            <span>邮箱：tsubasa@football.com</span>
+            <span>目标：世界顶级球员</span>
+          </div>
+        </div>
+      </div>
     </header>
-    <section>
-      <h2>Summary</h2>
-      <p>长期关注生成式 AI 在知识工作、客户服务和内容生产中的落地，擅长通过清晰表达、场景演示和方法论设计推动组织采用。</p>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">✦</div>
+        <div class="section-title">个人简介</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="entry-note">
+          大空翼是一名以球感、视野、突破能力和关键时刻执行力著称的进攻型球员。
+          他擅长在高强度对抗中保持冷静，通过盘带、传球与射门的连续决策带动整支球队的进攻节奏。
+        </div>
+        <div class="entry-note">
+          从少年时期开始，他就习惯把“团队胜利”放在个人数据之前，既能在前场完成终结，也能回撤串联中场，
+          是典型的全能型攻击核心。
+        </div>
+      </div>
     </section>
-    <section>
-      <h2>Experience</h2>
-      <div class="entry">
-        <div class="entry-head"><span>启明智能 / AI 布道师</span><span class="meta">2020.10 - 至今</span></div>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">◈</div>
+        <div class="section-title">成长经历</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div>2010 - 2012<br>南葛小学足球队<br>在青少年阶段便展现出极强的球场阅读能力，能迅速识别队友跑位并完成精准输送。</div>
+          <div>2012 - 2014<br>南葛中学足球队<br>逐渐成长为球队的第一进攻选择，在关键比赛中多次凭借个人能力扭转局面。</div>
+          <div>2014 - 2016<br>日本青年选拔队<br>开始面对更高强度的国际赛场，对抗节奏、战术理解与团队协作能力同步提升。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">★</div>
+        <div class="section-title">代表赛事</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="entry">
+          <div class="entry-head">
+            <span class="entry-title">全国少年足球赛</span>
+            <span class="entry-subtitle">南葛队核心球员</span>
+            <span class="entry-meta">2013/7 - 2013/8</span>
+          </div>
+          <div class="entry-note">
+            通过连续突破、灵巧摆脱和门前终结帮助球队建立优势，进一步确立“关键时刻解决比赛的人”这一角色。
+          </div>
+        </div>
+        <div class="entry">
+          <div class="entry-head">
+            <span class="entry-title">国际青少年邀请赛</span>
+            <span class="entry-subtitle">日本青年队</span>
+            <span class="entry-meta">2014/4 - 2014/6</span>
+          </div>
+          <div class="entry-note">
+            面对不同风格的对手时，能够快速切换比赛策略：需要突破时主动拿球，需要组织时主动回撤，
+            让球队进攻始终保持连续性。
+          </div>
+        </div>
+        <div class="entry">
+          <div class="entry-head">
+            <span class="entry-title">世界级对抗赛事</span>
+            <span class="entry-subtitle">日本代表队</span>
+            <span class="entry-meta">2016 - 至今</span>
+          </div>
+          <div class="entry-note">
+            在面对高压逼抢、紧密盯防和赛程密集的情况下，仍能保持稳定输出，逐渐形成更成熟的比赛节奏控制能力。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">⌁</div>
+        <div class="section-title">技术特点</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div>盘带突破：在狭小空间内依旧能保持对球权的掌控。</div>
+          <div>视野传球：能快速识别跑位，发起有威胁的进攻。</div>
+          <div>射门终结：具备在关键时刻改变比赛结果的能力。</div>
+          <div>团队协作：能够串联队友，放大整体进攻效率。</div>
+          <div>逆境心态：比分落后时也能保持稳定判断与执行。</div>
+          <div>学习能力：会根据对手特点迅速调整打法与站位。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">☰</div>
+        <div class="section-title">比赛标签</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div>进攻核心</div>
+          <div>关键球员</div>
+          <div>团队领袖</div>
+          <div>持续成长</div>
+          <div>球场视野</div>
+          <div>决胜能力</div>
+          <div>高压应对</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">☻</div>
+        <div class="section-title">荣誉与评价</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div>球队最值得信赖的进攻发动点，能把复杂局面梳理成清晰的得分机会。</div>
+          <div>在少年、青年到职业阶段都保持稳定上升曲线，是典型的长期成长型球员。</div>
+          <div>擅长在比赛中做“正确选择”，而不是只追求漂亮动作，因此更容易带动全队。</div>
+          <div>无论面对个人能力更强的对手，还是战术更成熟的球队，都能找到应对方式。</div>
+        </div>
         <ul>
-          <li>设计并交付 AI 主题培训、产品演示和行业沙龙，帮助客户建立 AI 使用共识。</li>
-          <li>将复杂技术能力拆解为业务用户可理解的流程、案例和操作指南。</li>
-          <li>收集客户反馈并反哺产品团队，推动功能优化和样板案例沉淀。</li>
+          <li>团队优先，个人能力服务于整体胜利。</li>
+          <li>擅长把传球、突破和射门串成连续进攻。</li>
+          <li>能够在压力最大的时刻保持清晰判断。</li>
+          <li>对比赛的理解不断进化，风格成熟而稳定。</li>
         </ul>
       </div>
     </section>
-    <section>
-      <h2>Selected Work</h2>
-      <ul>
-        <li>企业 AI 入门训练营：覆盖提示词、知识库问答、自动化工作流和安全边界。</li>
-        <li>行业解决方案 Demo：面向销售、运营、HR、客服等角色设计可复用演示。</li>
-      </ul>
-    </section>
-    <section>
-      <h2>Skills</h2>
-      <div class="skills">
-        <div>技术布道 / 公开表达</div>
-        <div>AI 产品培训 / 客户成功</div>
-        <div>场景访谈 / 需求转译</div>
-        <div>Prompt / RAG / Agent 基础</div>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-icon">♠</div>
+        <div class="section-title">专业技能</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="section-body">
+        <div class="skill-grid">
+          <div class="skill-card">
+            <div class="skill-label">Figma</div>
+            <div class="skill-bar"><span style="width: 58%"></span></div>
+          </div>
+          <div class="skill-card">
+            <div class="skill-label">Photoshop</div>
+            <div class="skill-bar"><span style="width: 56%"></span></div>
+          </div>
+          <div class="skill-card">
+            <div class="skill-label">Illustrator</div>
+            <div class="skill-bar"><span style="width: 48%"></span></div>
+          </div>
+        </div>
+        <div class="tip-box">
+          1. 丰富的运营经验，活动推广、文案撰写能力强，具有一定的执行能力。
+          2. 熟练使用office办公软件、Pr、Ps等软件。
+          3. 三年的校内外志愿服务经历，沟通交流能力、团队协作能力抗压释放能力较强。
+        </div>
       </div>
     </section>
   </article>
