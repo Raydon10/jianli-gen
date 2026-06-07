@@ -1,4 +1,10 @@
-resume-data/*
-!resume-data/.gitkeep
+.DS_Store
+**/.DS_Store
+
+resume-data/
+简历数据/*
+!简历数据/简历模版/
+!简历数据/简历模版/**
+
 *.pdf
 node_modules/
