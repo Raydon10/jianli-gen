@@ -101,6 +101,16 @@ export function setupAiController(state, api) {
     paper.style.setProperty("--paper-height", `${getResumeFrameHeight(doc)}px`);
   }
 
+  function getRenderedPrivateValue(field) {
+    if (!field) {
+      return "";
+    }
+    if (field.type === "photo" && field.value?.startsWith("data:image/")) {
+      return String(field.value || "");
+    }
+    return String(field.value || "") || getTokenLabel(field.key || "");
+  }
+
   function prepareResumePreviewHtml(html) {
     const previewStyle = `<style>
       @page { size: A4; margin: 0; }
@@ -182,7 +192,7 @@ export function setupAiController(state, api) {
     state.currentResumeHtml = previewHtml;
     state.currentResumeResolved = Boolean(options.privateResolved);
     state.currentResumeRenderedValues = options.privateResolved
-      ? Object.fromEntries(state.fields.map(field => [field.id || field.key, String(field.value || "")]))
+      ? Object.fromEntries(state.fields.map(field => [field.id || field.key, getRenderedPrivateValue(field)]))
       : {};
     state.resumePreview.innerHTML = `
       ${options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
@@ -217,20 +227,43 @@ export function setupAiController(state, api) {
     while (node) {
       const source = node.nodeValue || "";
       let nextValue = source;
+      let nodeReplaced = false;
       for (const currentField of currentByKey.values()) {
         const fieldId = currentField.id || currentField.key;
-        const previousValue = String(renderedById.get(fieldId) || "");
+        const tokenLabel = getTokenLabel(currentField.key || "");
+        const previousValue = String(renderedById.get(fieldId) || tokenLabel);
         const nextFieldValue = String(currentField?.value || "");
-        if (!previousValue || previousValue === nextFieldValue) {
-          continue;
-        }
+
         if (currentField?.type === "photo" && nextFieldValue.startsWith("data:image/")) {
+          if (source.trim() === tokenLabel && node.parentNode) {
+            const img = doc.createElement("img");
+            img.className = "resume-private-image";
+            img.setAttribute("src", nextFieldValue);
+            img.setAttribute("alt", currentField.key || "");
+            node.parentNode.replaceChild(img, node);
+            changed = true;
+            nodeReplaced = true;
+            break;
+          }
           continue;
         }
-        if (nextValue.includes(previousValue)) {
-          nextValue = nextValue.replace(new RegExp(escapeRegExp(previousValue), "g"), nextFieldValue);
+
+        if (nextFieldValue) {
+          if (previousValue && previousValue !== nextFieldValue && nextValue.includes(previousValue)) {
+            nextValue = nextValue.replace(new RegExp(escapeRegExp(previousValue), "g"), nextFieldValue);
+            changed = true;
+          } else if (tokenLabel && tokenLabel !== nextFieldValue && nextValue.includes(tokenLabel)) {
+            nextValue = nextValue.replace(new RegExp(escapeRegExp(tokenLabel), "g"), nextFieldValue);
+            changed = true;
+          }
+        } else if (previousValue && previousValue !== tokenLabel && nextValue.includes(previousValue)) {
+          nextValue = nextValue.replace(new RegExp(escapeRegExp(previousValue), "g"), tokenLabel);
           changed = true;
         }
+      }
+      if (nodeReplaced) {
+        node = walker.nextNode();
+        continue;
       }
       if (nextValue !== source) {
         node.nodeValue = nextValue;
@@ -248,11 +281,14 @@ export function setupAiController(state, api) {
           img.setAttribute("src", field.value);
           changed = true;
         }
+      } else if (field?.type === "photo" && img.parentNode) {
+        img.parentNode.replaceChild(doc.createTextNode(getTokenLabel(field.key || "")), img);
+        changed = true;
       }
     });
 
     state.currentResumeRenderedValues = Object.fromEntries(
-      state.fields.map(field => [field.id || field.key, String(field.value || "")])
+      state.fields.map(field => [field.id || field.key, getRenderedPrivateValue(field)])
     );
     iframe?.contentWindow?.__paginateResume?.();
     syncResumeFrameHeight(iframe);
