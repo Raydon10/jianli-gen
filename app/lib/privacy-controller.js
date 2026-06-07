@@ -151,6 +151,11 @@ export function setupPrivacyController(state, api) {
     if (state.rememberUnlockCheckbox) {
       state.rememberUnlockCheckbox.checked = true;
     }
+    if (state.privateUnlockHint) {
+      state.privateUnlockHint.innerHTML = action === "unlock"
+        ? '忘记密钥？<button class="inline-action" id="clearPrivate" type="button">点击清空</button> 隐私信息重新填写。清空后只会清空值，不清空 key，并会切换到解锁状态。'
+        : "";
+    }
     if (state.rememberUnlockCheckbox?.closest) {
       const rememberRow = state.rememberUnlockCheckbox.closest(".private-unlock-remember");
       if (rememberRow) {
@@ -522,7 +527,8 @@ export function setupPrivacyController(state, api) {
       }
       return true;
     } catch {
-      api.lockEncryptedPrivateData();
+      state.privateUnlocked = false;
+      state.privateValuesResolved = false;
       api.renderFields();
       api.renderAiEditor();
       api.restoreResumePreview?.();
@@ -565,7 +571,10 @@ export function setupPrivacyController(state, api) {
       api.setPrivateUnlockPopoverOpen(false);
       api.setStatus("隐私信息已解锁", "ok");
     } else {
-      api.clearRememberedPrivatePassword({ preserveChoice: true });
+      if (state.privateKeyInput) {
+        state.privateKeyInput.value = "";
+        state.privateKeyInput.focus();
+      }
       api.setStatus("密钥不正确，无法解锁隐私信息", "warning");
     }
   };

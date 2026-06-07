@@ -316,6 +316,24 @@ h2 {
   margin: 0;
 }
 
+.private-unlock-hint {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  user-select: none;
+}
+
+.private-unlock-hint .inline-action {
+  padding: 0;
+  font-size: inherit;
+  font-weight: 700;
+  line-height: inherit;
+}
+
 .key-input {
   width: 88px;
   min-height: 32px;

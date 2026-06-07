@@ -34,6 +34,7 @@ export function initJianliApp() {
     privateStatusBar: document.querySelector("#privateStatusBar"),
     privateUnlockPopover: document.querySelector("#privateUnlockPopover"),
     privateUnlockNote: document.querySelector("#privateUnlockNote"),
+    privateUnlockHint: document.querySelector("#privateUnlockHint"),
     toast: document.querySelector("#toast")
   });
 
@@ -91,10 +92,9 @@ export function initJianliApp() {
   });
   state.templateScrollLeftButton?.addEventListener("click", () => api.scrollTemplateList?.(-1));
   state.templateScrollRightButton?.addEventListener("click", () => api.scrollTemplateList?.(1));
-  state.clearPrivateButton?.addEventListener("click", () => api.clearPrivateData());
-  state.clearPrivateButton?.addEventListener("keydown", event => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
+  state.privateUnlockPopover?.addEventListener("click", event => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.id === "clearPrivate") {
       api.clearPrivateData();
     }
   });
