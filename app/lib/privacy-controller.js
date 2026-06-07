@@ -12,10 +12,11 @@ import {
 import {
   createFieldId,
   createEmptyPrivateFields,
+  createInitialPrivateFields,
+  ensureInitialPrivateFields,
   getPrivateFieldValidation,
   getFieldColorMap,
   getTokenMappings,
-  normalizeField,
   normalizeFieldType,
   privateDirty,
   privateFingerprint,
@@ -485,7 +486,7 @@ export function setupPrivacyController(state, api) {
         api.setStatus("没有已保存的隐私信息", "warning");
         return false;
       }
-      state.fields = (await decryptPrivateFields(password, await response.json())).map((field, index) => normalizeField(field, index));
+      state.fields = ensureInitialPrivateFields(state, await decryptPrivateFields(password, await response.json()));
       state.savedPrivateFingerprint = privateFingerprint(state);
       state.savedPrivateKeys = state.fields.map(field => field.key);
       state.savedPrivateTypes = state.fields.map(field => normalizeFieldType(field.type));
@@ -750,11 +751,7 @@ export function setupPrivacyController(state, api) {
         } else {
           state.privateMode = "plain";
           state.hasEncryptedPrivate = false;
-          state.fields = createEmptyPrivateFields(
-            state,
-            state.savedPrivateKeys.length ? state.savedPrivateKeys : defaultPrivateKeys,
-            state.savedPrivateTypes
-          );
+          state.fields = createInitialPrivateFields(state);
           state.privateUnlocked = true;
           state.privateValuesResolved = true;
           state.savedPrivateValues = Object.fromEntries(state.fields.map(field => [field.key, field.value]));
@@ -765,24 +762,16 @@ export function setupPrivacyController(state, api) {
           const payload = await privateResponse.json();
           const plainFields = Array.isArray(payload.fields) ? payload.fields : [];
           if (plainFields.length) {
-            state.fields = plainFields.map((field, index) => normalizeField(field, index));
+            state.fields = ensureInitialPrivateFields(state, plainFields);
           } else if (state.appState.privateMode === "plain" || state.appState.privateClearedAt) {
-            state.fields = createEmptyPrivateFields(
-              state,
-              state.savedPrivateKeys.length ? state.savedPrivateKeys : defaultPrivateKeys,
-              state.savedPrivateTypes
-            );
+            state.fields = createInitialPrivateFields(state);
           } else {
-            state.fields = state.fields.map((field, index) => normalizeField(field, index));
+            state.fields = ensureInitialPrivateFields(state, state.fields);
           }
         } else if (state.appState.privateMode === "plain" || state.appState.privateClearedAt) {
-          state.fields = createEmptyPrivateFields(
-            state,
-            state.savedPrivateKeys.length ? state.savedPrivateKeys : defaultPrivateKeys,
-            state.savedPrivateTypes
-          );
+          state.fields = createInitialPrivateFields(state);
         } else {
-          state.fields = state.fields.map((field, index) => normalizeField(field, index));
+          state.fields = createInitialPrivateFields(state);
         }
         state.privateUnlocked = true;
         state.privateValuesResolved = true;
@@ -799,8 +788,7 @@ export function setupPrivacyController(state, api) {
 
       state.publicDraftMarkdown = state.savedMaskedPublicMarkdown || state.publicDraftMarkdown || "";
     } catch {
-      applySample(state, state.demoSamples[0], { preservePrivateLock: true });
-      state.savedMaskedPublicMarkdown = state.publicDraftMarkdown;
+      state.fields = createInitialPrivateFields(state);
       state.savedPrivateValues = Object.fromEntries(state.fields.map(field => [field.key, field.value]));
       state.savedPrivateFingerprint = privateFingerprint(state);
       state.privateMode = "plain";

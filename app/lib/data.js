@@ -132,4 +132,4 @@ export const demoSamples = [
   }
 ];
 
-export const defaultPrivateKeys = demoSamples[0].fields.map(field => field.key);
+export const defaultPrivateKeys = ["姓名", "手机", "邮箱"];

@@ -15,7 +15,7 @@ const privatePath = join(privateDir, "隐私信息.json");
 const statePath = join(privateDir, "state.json");
 const port = Number(process.env.PORT || 8790);
 const host = "0.0.0.0";
-const defaultPrivateKeys = ["姓名", "年龄", "手机", "邮箱", "城市", "公司"];
+const defaultPrivateKeys = ["姓名", "手机", "邮箱"];
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",

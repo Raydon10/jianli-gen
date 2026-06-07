@@ -4,6 +4,7 @@ import {
   createUniqueFieldKey,
   createFieldId,
   isPhotoField,
+  isFixedPrivateField
 } from "./workspace-shared.js";
 
 export function setupFieldController(state, api) {
@@ -16,8 +17,9 @@ export function setupFieldController(state, api) {
 
     state.fields.forEach((field, index) => {
       const card = document.createElement("div");
-      card.className = `field-card${isPhotoField(field) ? " is-photo" : ""}`;
-      card.draggable = !locked;
+      const fixedField = isFixedPrivateField(field);
+      card.className = `field-card${isPhotoField(field) ? " is-photo" : ""}${fixedField ? " is-fixed" : ""}`;
+      card.draggable = !locked && !fixedField;
       card.dataset.index = String(index);
       card.style.setProperty("--field-color", field.color);
 
@@ -37,9 +39,9 @@ export function setupFieldController(state, api) {
           : `<span class="field-photo-empty">${imageIconSvg}<span>未添加图片</span></span>`;
 
       card.innerHTML = `
-        <div class="drag-handle" title="拖动排序">≡</div>
+        <div class="drag-handle" title="${fixedField ? "固定字段" : "拖动排序"}">${fixedField ? "🔒" : "≡"}</div>
         <div class="field-cell">
-          <input class="field-key${keyHasError ? " has-error" : ""}" value="${escapeHtml(field.key)}" aria-label="字段名" placeholder="字段名" ${keyHasError ? 'aria-invalid="true"' : ""} ${locked ? "disabled" : ""}>
+          <input class="field-key${keyHasError ? " has-error" : ""}" value="${escapeHtml(field.key)}" aria-label="字段名" placeholder="字段名" ${keyHasError ? 'aria-invalid="true"' : ""} ${locked || fixedField ? "disabled" : ""}>
           <div class="field-error" data-error-for="key" ${keyHasError ? "" : "hidden"}>${keyErrorText}</div>
         </div>
         ${
@@ -64,13 +66,13 @@ export function setupFieldController(state, api) {
           <button class="field-action" type="button" title="字段操作" aria-label="字段操作">⋯</button>
           <div class="field-actions-popover">
             <button class="field-menu-item" data-action="clear-value" type="button">取消脱敏</button>
-            <button class="field-menu-item danger" data-action="delete" type="button">删除</button>
+            ${fixedField ? "" : '<button class="field-menu-item danger" data-action="delete" type="button">删除</button>'}
           </div>
         </div>
       `;
 
       card.querySelector(".field-key").addEventListener("input", event => {
-        if (locked) return;
+        if (locked || fixedField) return;
         const nextKey = event.target.value.trim();
         state.fields[index].key = nextKey;
         if (!state.aiEditorFocused) {
@@ -144,7 +146,7 @@ export function setupFieldController(state, api) {
         api.renderStatus();
       });
 
-      card.querySelector("[data-action='delete']").addEventListener("click", event => {
+      card.querySelector("[data-action='delete']")?.addEventListener("click", event => {
         event.preventDefault();
         api.closeFieldActionsMenu(card);
         if (locked) {
@@ -170,7 +172,7 @@ export function setupFieldController(state, api) {
       actionsMenu?.addEventListener("focusin", () => api.positionFieldActionsMenu(actionsMenu));
 
       card.addEventListener("dragstart", event => {
-        if (locked) return;
+        if (locked || fixedField) return;
         state.dragSourceIndex = index;
         api.clearDragPreview();
         event.dataTransfer.setData("text/plain", String(index));
@@ -184,7 +186,7 @@ export function setupFieldController(state, api) {
       });
 
       card.addEventListener("dragover", event => {
-        if (locked) return;
+        if (locked || fixedField) return;
         event.preventDefault();
         const rect = card.getBoundingClientRect();
         const before = event.clientY < rect.top + rect.height / 2;
@@ -192,7 +194,7 @@ export function setupFieldController(state, api) {
       });
 
       card.addEventListener("drop", event => {
-        if (locked) return;
+        if (locked || fixedField) return;
         event.preventDefault();
         const fromIndex = state.dragSourceIndex ?? Number(event.dataTransfer.getData("text/plain"));
         const toIndex = state.dragTargetIndex ?? index;
@@ -270,6 +272,13 @@ export function setupFieldController(state, api) {
   api.moveField = function moveField(fromIndex, toIndex) {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
       return;
+    }
+    if (isFixedPrivateField(state.fields[fromIndex])) {
+      return;
+    }
+    const fixedIndex = state.fields.findIndex(field => isFixedPrivateField(field));
+    if (fixedIndex >= 0 && toIndex <= fixedIndex) {
+      toIndex = fixedIndex + 1;
     }
     const [field] = state.fields.splice(fromIndex, 1);
     state.fields.splice(fromIndex < toIndex ? toIndex - 1 : toIndex, 0, field);

@@ -46,6 +46,27 @@ export function normalizeField(field, index = 0) {
   };
 }
 
+export function isFixedPrivateField(field) {
+  return field?.key === "姓名";
+}
+
+export function createInitialPrivateFields(state) {
+  return createEmptyPrivateFields(state, defaultPrivateKeys);
+}
+
+export function ensureInitialPrivateFields(state, fields) {
+  const normalizedFields = Array.isArray(fields)
+    ? fields.map((field, index) => normalizeField(field, index)).filter(field => field.key)
+    : [];
+  const nameField = normalizedFields.find(field => field.key === "姓名");
+  const otherFields = normalizedFields.filter(field => field.key !== "姓名");
+
+  return [
+    nameField || createEmptyPrivateFields(state, ["姓名"])[0],
+    ...otherFields
+  ];
+}
+
 export function createWorkspaceState() {
   return {
     colors,
