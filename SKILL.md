@@ -57,3 +57,4 @@ description: 保护隐私的简历 Skill。隐私信息加密管理，轻松生�
 - 安装和本地启动：`references/install-and-run.md`
 - 文件路径约定：`references/files.md`
 - 模板选择和管理：`references/templates.md`
+- 仓库地址：`https://github.com/Raydon10/jianli-gen`
