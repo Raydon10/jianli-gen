@@ -81,6 +81,7 @@ textarea {
 }
 
 .public-panel {
+  position: relative;
   border-right: 0;
 }
 
@@ -690,7 +691,7 @@ textarea {
   flex: 1;
   overflow: auto;
   margin: 12px;
-  padding: 12px 14px;
+  padding: 12px 14px 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -727,6 +728,54 @@ textarea {
 .ai-editor:empty::before {
   content: attr(data-placeholder);
   color: var(--muted);
+}
+
+.tutorial-drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(18, 28, 45, 0.12);
+}
+
+.tutorial-drawer-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--soft);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tutorial-drawer-body {
+  display: none;
+  border-top: 1px solid var(--line);
+}
+
+.tutorial-drawer.is-open .tutorial-drawer-body {
+  display: block;
+}
+
+.tutorial-drawer-body {
+  max-height: 260px;
+  padding: 10px 12px;
+  overflow: auto;
+  color: var(--muted);
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.42;
 }
 
 .token-chip {

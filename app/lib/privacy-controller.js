@@ -20,8 +20,7 @@ import {
   normalizeFieldType,
   privateDirty,
   privateFingerprint,
-  publicDirty,
-  applySample
+  publicDirty
 } from "./workspace-shared.js";
 
 export function setupPrivacyController(state, api) {
@@ -270,20 +269,35 @@ export function setupPrivacyController(state, api) {
     }
   };
 
+  api.renderTutorialDrawer = function renderTutorialDrawer() {
+    if (!state.tutorialDrawer || !state.tutorialDrawerToggle || !state.tutorialDrawerBody) {
+      return;
+    }
+    state.tutorialDrawer.classList.toggle("is-open", state.tutorialDrawerOpen);
+    state.tutorialDrawerToggle.setAttribute("aria-expanded", String(state.tutorialDrawerOpen));
+    if (state.tutorialDrawerToggleText) {
+      state.tutorialDrawerToggleText.textContent = state.tutorialDrawerOpen ? "收起" : "展开";
+    }
+    api.renderTutorialContent?.();
+  };
+
+  api.setTutorialDrawerOpen = function setTutorialDrawerOpen(open) {
+    state.tutorialDrawerOpen = Boolean(open);
+    api.renderTutorialDrawer();
+  };
+
   api.regeneratePublicExample = function regeneratePublicExample() {
-    const confirmed = window.confirm("确认清空？这会清空脱敏简历和隐私信息，并恢复为初始状态。");
+    const confirmed = window.confirm("将清空脱敏简历，操作不可恢复。");
     if (!confirmed) {
       return;
     }
-    applySample(state, state.demoSamples[0]);
+    state.publicDraftMarkdown = "";
     state.savedMaskedPublicMarkdown = "";
-    state.savedPrivateValues = {};
-    state.savedPrivateFingerprint = "";
-    api.renderFields();
+    api.setTutorialDrawerOpen(true);
     api.renderAiEditor();
     api.updateOutput();
     api.renderStatus();
-    api.setStatus("已恢复初始状态，保存后会更新文件", "ok");
+    api.setStatus("已清空脱敏简历，保存后会更新文件", "ok");
   };
 
   api.apiRead = async function apiRead(path) {
@@ -783,15 +797,13 @@ export function setupPrivacyController(state, api) {
         if (state.privateMode === "plain" && state.privateKeyInput) {
           state.privateKeyInput.value = "";
         }
-        if (!state.savedMaskedPublicMarkdown) {
-          applySample(state, state.demoSamples[0], { preservePrivateLock: true });
-          state.savedMaskedPublicMarkdown = state.publicDraftMarkdown;
-        }
       }
 
       state.publicDraftMarkdown = state.savedMaskedPublicMarkdown || state.publicDraftMarkdown || "";
+      api.setTutorialDrawerOpen(!state.publicDraftMarkdown.trim());
     } catch {
       state.fields = createInitialPrivateFields(state);
+      state.publicDraftMarkdown = "";
       state.savedPrivateValues = Object.fromEntries(state.fields.map(field => [field.key, field.value]));
       state.savedPrivateFingerprint = privateFingerprint(state);
       state.privateMode = "plain";
@@ -800,11 +812,13 @@ export function setupPrivacyController(state, api) {
       if (state.privateKeyInput) {
         state.privateKeyInput.value = "";
       }
+      api.setTutorialDrawerOpen(true);
       api.setStatus("保存服务未启动，当前仅可预览", "warning");
     }
 
     api.renderFields();
     api.renderAiEditor();
+    api.renderTutorialDrawer();
     api.generateResumePreview();
     api.renderStatus();
 

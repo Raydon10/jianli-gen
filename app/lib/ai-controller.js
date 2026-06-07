@@ -418,6 +418,14 @@ export function setupAiController(state, api) {
 
   api.serializeAiEditor = serializeAiEditor;
 
+  api.renderTutorialContent = function renderTutorialContent() {
+    if (!state.tutorialDrawerBody) {
+      return;
+    }
+    state.tutorialDrawerBody.innerHTML = "";
+    state.tutorialDrawerBody.appendChild(buildAiEditorFragment(state.tutorialMarkdown));
+  };
+
   api.renderAiEditor = function renderAiEditor() {
     api.mountAiEditor();
     if (state.aiEditor) {
@@ -430,6 +438,7 @@ export function setupAiController(state, api) {
         state.aiEditor.refreshFields?.();
         state.aiRenderSignature = nextSignature;
       }
+      api.renderTutorialContent?.();
       return;
     }
 
@@ -441,6 +450,7 @@ export function setupAiController(state, api) {
     if (state.publicDraftMarkdown) {
       state.maskedPreview.appendChild(buildAiEditorFragment(state.publicDraftMarkdown));
     }
+    api.renderTutorialContent?.();
   };
 
   api.normalizeAndRenderAiEditor = function normalizeAndRenderAiEditor(forceRender = false) {

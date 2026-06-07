@@ -1,4 +1,4 @@
-import { applySample, createWorkspaceState } from "./workspace-shared.js";
+import { createWorkspaceState } from "./workspace-shared.js";
 import { setupFieldController } from "./field-controller.js";
 import { setupAiController } from "./ai-controller.js";
 import { setupPrivacyController } from "./privacy-controller.js";
@@ -10,6 +10,10 @@ export function initJianliApp() {
   Object.assign(state, {
     fieldList: document.querySelector("#fieldList"),
     maskedPreview: document.querySelector("#maskedPreview"),
+    tutorialDrawer: document.querySelector("#tutorialDrawer"),
+    tutorialDrawerToggle: document.querySelector("#tutorialDrawerToggle"),
+    tutorialDrawerToggleText: document.querySelector("#tutorialDrawerToggleText"),
+    tutorialDrawerBody: document.querySelector("#tutorialDrawerBody"),
     resumePreview: document.querySelector("#resumePreview"),
     templateList: document.querySelector("#templateList"),
     templateScrollLeftButton: document.querySelector("#templateScrollLeft"),
@@ -40,10 +44,6 @@ export function initJianliApp() {
     state.resumePreview.innerHTML = "";
   }
 
-  if (!state.publicDraftMarkdown) {
-    applySample(state, state.demoSamples[0], { preservePrivateLock: true });
-  }
-
   setupFieldController(state, api);
   setupAiController(state, api);
   setupPrivacyController(state, api);
@@ -51,6 +51,9 @@ export function initJianliApp() {
   state.addFieldButton.addEventListener("click", () => api.addField());
   state.addImageButton.addEventListener("click", () => api.addImage());
   state.regeneratePublicButton.addEventListener("click", () => api.regeneratePublicExample());
+  state.tutorialDrawerToggle?.addEventListener("click", () => {
+    api.setTutorialDrawerOpen?.(!state.tutorialDrawerOpen);
+  });
   state.printButton.addEventListener("click", () => {
     api.printCurrentResume?.();
   });
