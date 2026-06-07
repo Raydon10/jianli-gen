@@ -292,7 +292,6 @@ export function setupPrivacyController(state, api) {
       return;
     }
     state.publicDraftMarkdown = "";
-    state.savedMaskedPublicMarkdown = "";
     api.setTutorialDrawerOpen(true);
     api.renderAiEditor();
     api.updateOutput();

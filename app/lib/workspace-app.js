@@ -114,6 +114,12 @@ export function initJianliApp() {
       api.scheduleAiNormalization();
     }
   });
+  state.maskedPreview.addEventListener("pointerdown", event => {
+    if (event.target !== state.maskedPreview) {
+      return;
+    }
+    state.aiEditor?.focus?.();
+  });
   window.addEventListener("resize", () => {
     api.updateResumePreviewScale?.();
     api.updateTemplateScrollControls?.();
@@ -127,6 +133,9 @@ export function initJianliApp() {
   });
   state.maskedPreview.addEventListener("focusin", () => {
     state.aiEditorFocused = true;
+    if (state.tutorialDrawerOpen) {
+      api.setTutorialDrawerOpen?.(false);
+    }
   });
   state.maskedPreview.addEventListener("focusout", () => {
     state.aiEditorFocused = false;
