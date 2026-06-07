@@ -1,0 +1,29 @@
+{
+  "publicSavedAt": "2026-06-05T14:40:41.435Z",
+  "publicHash": "b4441f1bcdc8cebe7baeefbe4bd19bb512dac41606b906a671547adf1402d97e",
+  "updatedAt": "2026-06-07T04:59:03.764Z",
+  "privateSavedAt": "2026-06-07T04:59:03.759Z",
+  "privateEncrypted": true,
+  "privateCipherHash": "d04d964354a2bec36980acedffe3e11c031f3fd0217dfac046fd63c8e9a41f2e",
+  "privateFieldKeys": [
+    "姓名",
+    "年龄",
+    "手机",
+    "邮箱",
+    "城市",
+    "公司"
+  ],
+  "privateFieldCount": 6,
+  "privateClearedAt": "2026-06-06T12:40:15.796Z",
+  "publicMaskedSavedAt": "2026-06-07T04:59:03.764Z",
+  "publicMaskedHash": "526a2c4766e5e760c8f0f9449c4ed91b05f02f26710426a37bc8be6bc4fee873",
+  "privateFieldTypes": [
+    "text",
+    "text",
+    "text",
+    "text",
+    "text",
+    "text"
+  ],
+  "privateMode": "encrypted"
+}

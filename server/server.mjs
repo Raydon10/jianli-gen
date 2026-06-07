@@ -5,14 +5,14 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const dataDir = join(root, "resume-data");
+const dataDir = join(root, "简历数据");
+const maskedResumeDir = join(dataDir, "脱敏简历");
+const privateDir = join(dataDir, "隐私信息");
 const templateDir = join(dataDir, "简历模版");
-const publicMaskedPath = join(dataDir, "ai-input.md");
-const aiOutputPath = join(dataDir, "ai-output.html");
-const legacyAiInputPath = join(dataDir, "ai.md");
-const legacyPublicMaskedPath = join(dataDir, "public.masked.md");
-const privatePath = join(dataDir, "private.enc.json");
-const statePath = join(dataDir, "state.json");
+const publicMaskedPath = join(maskedResumeDir, "AI读取的脱敏简历.md");
+const aiOutputPath = join(maskedResumeDir, "AI生成的简历.html");
+const privatePath = join(privateDir, "隐私信息.json");
+const statePath = join(privateDir, "state.json");
 const port = Number(process.env.PORT || 8790);
 const host = "0.0.0.0";
 const defaultPrivateKeys = ["姓名", "年龄", "手机", "邮箱", "城市", "公司"];
@@ -27,6 +27,9 @@ const mimeTypes = {
 
 async function ensureDataDir() {
   await mkdir(dataDir, { recursive: true });
+  await mkdir(maskedResumeDir, { recursive: true });
+  await mkdir(privateDir, { recursive: true });
+  await mkdir(templateDir, { recursive: true });
 }
 
 async function exists(path) {
@@ -86,16 +89,11 @@ async function handleApi(request, response) {
   }
 
   if (request.url === "/api/public-masked" && request.method === "GET") {
-    if (!(await exists(publicMaskedPath)) && !(await exists(legacyAiInputPath)) && !(await exists(legacyPublicMaskedPath))) {
+    if (!(await exists(publicMaskedPath))) {
       send(response, 404, "Not found");
       return true;
     }
-    const path = (await exists(publicMaskedPath))
-      ? publicMaskedPath
-      : (await exists(legacyAiInputPath))
-        ? legacyAiInputPath
-        : legacyPublicMaskedPath;
-    send(response, 200, await readFile(path, "utf8"), "text/plain; charset=utf-8");
+    send(response, 200, await readFile(publicMaskedPath, "utf8"), "text/plain; charset=utf-8");
     return true;
   }
 

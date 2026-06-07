@@ -537,6 +537,7 @@ export function setupAiController(state, api) {
     }
     if (!templates.length) {
       state.templateList.innerHTML = `<div class="empty-hint">暂无简历模版</div>`;
+      api.updateTemplateScrollControls?.();
       return;
     }
     state.templateList.innerHTML = templates.map(template => `
@@ -557,7 +558,8 @@ export function setupAiController(state, api) {
     if (!state.templateList) {
       return;
     }
-    const hasOverflow = state.templateList.scrollWidth > state.templateList.clientWidth + 1;
+    const hasCards = Boolean(state.templateList.querySelector(".template-card"));
+    const hasOverflow = hasCards && state.templateList.scrollWidth > state.templateList.clientWidth + 1;
     state.templateList.classList.toggle("has-overflow", hasOverflow);
     if (state.templateScrollLeftButton) {
       state.templateScrollLeftButton.hidden = !hasOverflow;
@@ -610,6 +612,7 @@ export function setupAiController(state, api) {
       api.renderTemplateList(templatesWithPreview);
     } catch {
       state.templateList.innerHTML = `<div class="empty-hint">简历模版读取失败</div>`;
+      api.updateTemplateScrollControls?.();
     }
   };
 
@@ -676,7 +679,7 @@ export function setupAiController(state, api) {
         api.setStatus("AI 生成简历已更新", "ok");
       }
     } catch {
-      // 外部 Skill 可能尚未生成 ai-output.html，静默等待下一次轮询。
+      // 外部 Skill 可能尚未生成 AI生成的简历.html，静默等待下一次轮询。
     }
   };
 

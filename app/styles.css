@@ -759,6 +759,7 @@ textarea {
 }
 
 .resume-page {
+  flex: 1;
   overflow: auto;
   margin: 0;
   padding: 10px;
@@ -768,7 +769,7 @@ textarea {
 .resume-empty-state {
   display: grid;
   place-items: center;
-  min-height: 260px;
+  min-height: 100%;
   color: var(--muted);
   font-size: 14px;
   font-weight: 750;
@@ -789,6 +790,7 @@ textarea {
 
 .template-strip {
   position: relative;
+  min-height: 124px;
 }
 
 .template-scroll-button {
@@ -833,6 +835,7 @@ textarea {
 .template-list {
   display: flex;
   gap: 10px;
+  min-height: 124px;
   overflow-x: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
