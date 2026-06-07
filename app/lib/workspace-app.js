@@ -146,6 +146,7 @@ export function initJianliApp() {
   api.generateResumePreview();
   api.renderStatus();
   api.loadResumeTemplates?.();
-  api.startAiOutputPolling?.();
-  api.loadSavedData();
+  api.loadSavedData().finally(() => {
+    api.startAiOutputPolling?.();
+  });
 }
