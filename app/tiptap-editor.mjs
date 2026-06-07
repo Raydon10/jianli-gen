@@ -710,7 +710,7 @@ export function createJianliEditor(root, options = {}) {
         hardBreak: true
       }),
       Placeholder.configure({
-        placeholder: options.placeholder || "AI 读取的内容会在这里显示"
+        placeholder: options.placeholder || "请输入或粘贴 Skill 要参考的简历，并在隐私信息模块进行脱敏"
       }),
       TokenNode.configure({ getFields }),
       AutoTokenizeExtension.configure({ getFields }),

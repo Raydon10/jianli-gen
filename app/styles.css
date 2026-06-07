@@ -736,11 +736,17 @@ textarea {
   right: 0;
   bottom: 0;
   z-index: 3;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border-top: 1px solid var(--line);
   border-radius: 0;
   background: #fff;
   box-shadow: 0 10px 24px rgba(18, 28, 45, 0.12);
+}
+
+.tutorial-drawer.is-open {
+  top: 33.333%;
 }
 
 .tutorial-drawer-toggle {
@@ -765,10 +771,11 @@ textarea {
 
 .tutorial-drawer.is-open .tutorial-drawer-body {
   display: block;
+  flex: 1;
+  min-height: 0;
 }
 
 .tutorial-drawer-body {
-  max-height: 260px;
   padding: 10px 12px;
   overflow: auto;
   color: var(--muted);

@@ -363,14 +363,14 @@ export function setupPrivacyController(state, api) {
     api.refreshPublicDraftFromEditor?.();
     const payload = state.maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields));
 
-    const response = await fetch("/api/public-masked", {
+    const response = await fetch("/api/skill-masked-resume", {
       method: "PUT",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
       body: payload
     });
 
     if (!response.ok) {
-      throw new Error(`AI 读取的脱敏简历保存失败：${response.status}`);
+      throw new Error(`Skill 读取的脱敏简历保存失败：${response.status}`);
     }
 
     state.appState = await response.json();
@@ -424,8 +424,8 @@ export function setupPrivacyController(state, api) {
       console.error(error);
       api.setStatus(
         lockAfter
-          ? "隐私信息已保存，AI读取的脱敏简历未同步保存"
-          : "隐私信息已保存，AI读取的脱敏简历未同步保存",
+          ? "隐私信息已保存，Skill 读取的脱敏简历未同步保存"
+          : "隐私信息已保存，Skill 读取的脱敏简历未同步保存",
         "warning"
       );
     }
@@ -601,13 +601,13 @@ export function setupPrivacyController(state, api) {
         }
       } catch (error) {
         console.error(error);
-        publicFailed = error instanceof Error ? error.message : "AI读取的脱敏简历保存失败";
+        publicFailed = error instanceof Error ? error.message : "Skill 读取的脱敏简历保存失败";
       }
 
       try {
         const saved = await api.savePrivateData(privatePassword);
         if (publicSaved) {
-          api.setStatus("AI读取的脱敏简历和隐私信息已保存", "ok");
+          api.setStatus("Skill 读取的脱敏简历和隐私信息已保存", "ok");
           return;
         }
         if (saved) {
@@ -617,7 +617,7 @@ export function setupPrivacyController(state, api) {
       } catch (error) {
         console.error(error);
         if (publicSaved) {
-          api.setStatus("AI读取的脱敏简历已保存，隐私信息保存失败", "warning");
+          api.setStatus("Skill 读取的脱敏简历已保存，隐私信息保存失败", "warning");
         } else if (publicFailed) {
           api.setStatus(`${publicFailed}，隐私信息保存失败`, "warning");
         } else {
@@ -627,7 +627,7 @@ export function setupPrivacyController(state, api) {
       }
 
       if (publicSaved) {
-        api.setStatus("AI读取的脱敏简历已保存", "ok");
+        api.setStatus("Skill 读取的脱敏简历已保存", "ok");
       } else if (publicFailed) {
         api.setStatus(publicFailed, "warning");
       }
@@ -646,7 +646,7 @@ export function setupPrivacyController(state, api) {
         publicSaved = true;
       } catch (error) {
         console.error(error);
-        publicFailed = error instanceof Error ? error.message : "AI读取的脱敏简历保存失败";
+        publicFailed = error instanceof Error ? error.message : "Skill 读取的脱敏简历保存失败";
       }
     }
 
@@ -666,23 +666,23 @@ export function setupPrivacyController(state, api) {
     }
 
     if (publicSaved && privateSaved) {
-      api.setStatus("AI读取的脱敏简历和隐私信息已保存", "ok");
+      api.setStatus("Skill 读取的脱敏简历和隐私信息已保存", "ok");
       return;
     }
 
     if (publicSaved && privateNeedsKey) {
-      api.setStatus("AI读取的脱敏简历已保存，隐私信息未保存，请输入密钥后继续保存", "warning");
+      api.setStatus("Skill 读取的脱敏简历已保存，隐私信息未保存，请输入密钥后继续保存", "warning");
       api.openPrivateCredentialPrompt("save", state.saveAllButton);
       return;
     }
 
     if (publicSaved && privateFailed) {
-      api.setStatus("AI读取的脱敏简历已保存，隐私信息保存失败", "warning");
+      api.setStatus("Skill 读取的脱敏简历已保存，隐私信息保存失败", "warning");
       return;
     }
 
     if (publicSaved && !privateChanged) {
-      api.setStatus("AI读取的脱敏简历已保存", "ok");
+      api.setStatus("Skill 读取的脱敏简历已保存", "ok");
       return;
     }
 
@@ -735,7 +735,7 @@ export function setupPrivacyController(state, api) {
       state.savedPrivateKeys = Array.isArray(state.appState.privateFieldKeys) ? state.appState.privateFieldKeys : [];
       state.savedPrivateTypes = Array.isArray(state.appState.privateFieldTypes) ? state.appState.privateFieldTypes : [];
 
-      const maskedResponse = await api.apiRead("/api/public-masked");
+      const maskedResponse = await api.apiRead("/api/skill-masked-resume");
       if (maskedResponse) {
         state.savedMaskedPublicMarkdown = await maskedResponse.text();
       } else {

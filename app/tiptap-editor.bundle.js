@@ -19145,7 +19145,7 @@ img.ProseMirror-separator {
           hardBreak: true
         }),
         Placeholder.configure({
-          placeholder: options.placeholder || "AI \u8BFB\u53D6\u7684\u5185\u5BB9\u4F1A\u5728\u8FD9\u91CC\u663E\u793A"
+          placeholder: options.placeholder || "\u8BF7\u8F93\u5165\u6216\u7C98\u8D34 Skill \u8981\u53C2\u8003\u7684\u7B80\u5386\uFF0C\u5E76\u5728\u9690\u79C1\u4FE1\u606F\u6A21\u5757\u8FDB\u884C\u8131\u654F"
         }),
         TokenNode.configure({ getFields }),
         AutoTokenizeExtension.configure({ getFields }),

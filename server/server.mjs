@@ -9,8 +9,8 @@ const dataDir = join(root, "简历数据");
 const maskedResumeDir = join(dataDir, "脱敏简历");
 const privateDir = join(dataDir, "隐私信息");
 const templateDir = join(dataDir, "简历模版");
-const publicMaskedPath = join(maskedResumeDir, "AI读取的脱敏简历.md");
-const aiOutputPath = join(maskedResumeDir, "AI生成的简历.html");
+const skillMaskedResumePath = join(maskedResumeDir, "Skill读取的脱敏简历.md");
+const skillOutputPath = join(maskedResumeDir, "Skill生成的简历.html");
 const privatePath = join(privateDir, "隐私信息.json");
 const statePath = join(privateDir, "state.json");
 const port = Number(process.env.PORT || 8790);
@@ -89,19 +89,19 @@ async function handleApi(request, response) {
     return true;
   }
 
-  if (request.url === "/api/public-masked" && request.method === "GET") {
-    if (!(await exists(publicMaskedPath))) {
+  if (request.url === "/api/skill-masked-resume" && request.method === "GET") {
+    if (!(await exists(skillMaskedResumePath))) {
       send(response, 404, "Not found");
       return true;
     }
-    send(response, 200, await readFile(publicMaskedPath, "utf8"), "text/plain; charset=utf-8");
+    send(response, 200, await readFile(skillMaskedResumePath, "utf8"), "text/plain; charset=utf-8");
     return true;
   }
 
-  if (request.url === "/api/public-masked" && request.method === "PUT") {
+  if (request.url === "/api/skill-masked-resume" && request.method === "PUT") {
     const body = await readBody(request);
     await ensureDataDir();
-    await writeFile(publicMaskedPath, body);
+    await writeFile(skillMaskedResumePath, body);
     const state = await updateState({
       publicMaskedSavedAt: new Date().toISOString(),
       publicMaskedHash: hash(body)
@@ -124,12 +124,12 @@ async function handleApi(request, response) {
     return true;
   }
 
-  if (request.url === "/api/ai-output/meta" && request.method === "GET") {
-    if (!(await exists(aiOutputPath))) {
+  if (request.url === "/api/skill-output/meta" && request.method === "GET") {
+    if (!(await exists(skillOutputPath))) {
       send(response, 200, JSON.stringify({ exists: false }), "application/json; charset=utf-8");
       return true;
     }
-    const info = await stat(aiOutputPath);
+    const info = await stat(skillOutputPath);
     send(response, 200, JSON.stringify({
       exists: true,
       version: String(Math.floor(info.mtimeMs)),
@@ -138,12 +138,12 @@ async function handleApi(request, response) {
     return true;
   }
 
-  if (request.url === "/api/ai-output" && request.method === "GET") {
-    if (!(await exists(aiOutputPath))) {
+  if (request.url === "/api/skill-output" && request.method === "GET") {
+    if (!(await exists(skillOutputPath))) {
       send(response, 404, "Not found");
       return true;
     }
-    send(response, 200, await readFile(aiOutputPath, "utf8"), "text/html; charset=utf-8");
+    send(response, 200, await readFile(skillOutputPath, "utf8"), "text/html; charset=utf-8");
     return true;
   }
 

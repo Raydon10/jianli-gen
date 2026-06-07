@@ -137,7 +137,7 @@ export function setupAiController(state, api) {
 
   function renderAiOutputPreview() {
     if (state.aiOutputSourceHtml) {
-      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览", {
+      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "Skill 生成简历预览", {
         privateLockedHint: !state.privateUnlocked
       });
     } else if (!state.aiOutputVersion) {
@@ -513,7 +513,7 @@ export function setupAiController(state, api) {
     state.aiEditor = window.createJianliEditor(state.maskedPreview, {
       initialText: state.publicDraftMarkdown || state.savedMaskedPublicMarkdown || "",
       getFields: () => state.fields,
-      placeholder: "AI 读取的脱敏简历会在这里显示",
+      placeholder: "请输入或粘贴 Skill 要参考的简历，并在隐私信息模块进行脱敏",
       onChange: text => {
         state.publicDraftMarkdown = text;
         state.aiRenderSignature = `${normalizeAiText(text)}\u0000${privateFingerprint(state)}`;
@@ -689,9 +689,9 @@ export function setupAiController(state, api) {
   };
 
   api.loadAiOutput = async function loadAiOutput(version = "") {
-    const response = await fetch("/api/ai-output");
+    const response = await fetch("/api/skill-output");
     if (!response.ok) {
-      throw new Error("AI 生成简历读取失败");
+      throw new Error("Skill 生成简历读取失败");
     }
     const html = await response.text();
     clearTemplateSelection();
@@ -714,12 +714,12 @@ export function setupAiController(state, api) {
       return;
     }
     await api.loadAiOutput(state.pendingAiOutputVersion);
-    api.setStatus("已显示最新 AI 生成简历", "ok");
+    api.setStatus("已显示最新 Skill 生成简历", "ok");
   };
 
   api.checkAiOutputUpdate = async function checkAiOutputUpdate({ initial = false } = {}) {
     try {
-      const response = await fetch("/api/ai-output/meta");
+      const response = await fetch("/api/skill-output/meta");
       if (!response.ok) {
         return;
       }
@@ -737,10 +737,10 @@ export function setupAiController(state, api) {
       if (meta.version !== state.aiOutputVersion) {
         state.pendingAiOutputVersion = meta.version;
         api.updateLatestResumeButton?.();
-        api.setStatus("AI 生成简历已更新，可查看最新", "ok");
+        api.setStatus("Skill 生成简历已更新，可查看最新", "ok");
       }
     } catch {
-      // 外部 Skill 可能尚未生成 AI生成的简历.html，静默等待下一次轮询。
+      // 外部 Skill 可能尚未生成 Skill生成的简历.html，静默等待下一次轮询。
     }
   };
 
