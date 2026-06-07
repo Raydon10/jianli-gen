@@ -694,7 +694,7 @@ export function setupAiController(state, api) {
         state.aiEditor.setSourceText(nextText);
         state.aiRenderSignature = nextSignature;
       } else if (state.aiRenderSignature !== nextSignature) {
-        state.aiEditor.refreshFields?.();
+        state.aiEditor.setSourceText(nextText);
         state.aiRenderSignature = nextSignature;
       }
       api.renderTutorialContent?.();

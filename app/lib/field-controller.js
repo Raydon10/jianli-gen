@@ -79,7 +79,6 @@ export function setupFieldController(state, api) {
         if (state.aiEditor) {
           state.publicDraftMarkdown = state.aiEditor.serialize();
         }
-        api.updateOutput();
         api.renderStatus();
         api.renderPrivateFieldValidation();
       });
@@ -105,7 +104,6 @@ export function setupFieldController(state, api) {
             event.target.value = "";
             api.renderFields();
             api.renderAiEditor();
-            api.updateOutput();
             api.renderStatus();
             api.renderPrivateFieldValidation();
           } catch {
@@ -117,7 +115,6 @@ export function setupFieldController(state, api) {
           if (locked) return;
           state.fields[index].value = event.target.value;
           api.renderAiEditor();
-          api.updateOutput();
           api.renderStatus();
           api.renderPrivateFieldValidation();
         });
@@ -136,7 +133,6 @@ export function setupFieldController(state, api) {
         state.fields[index].value = "";
         api.renderFields();
         api.renderAiEditor();
-        api.updateOutput();
         api.renderStatus();
       });
 
@@ -157,7 +153,6 @@ export function setupFieldController(state, api) {
         if (!state.aiEditorFocused) {
           api.renderAiEditor();
         }
-        api.updateOutput();
         api.renderStatus();
       });
 
@@ -277,7 +272,6 @@ export function setupFieldController(state, api) {
     const [field] = state.fields.splice(fromIndex, 1);
     state.fields.splice(fromIndex < toIndex ? toIndex - 1 : toIndex, 0, field);
     api.renderFields();
-    api.updateOutput();
     api.renderStatus();
   };
 
@@ -316,7 +310,6 @@ export function setupFieldController(state, api) {
     });
     api.renderFields();
     api.renderAiEditor();
-    api.updateOutput();
     api.renderStatus();
   };
 
@@ -334,7 +327,6 @@ export function setupFieldController(state, api) {
     });
     api.renderFields();
     api.renderAiEditor();
-    api.updateOutput();
     api.renderStatus();
   };
 }
