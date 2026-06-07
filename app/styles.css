@@ -882,7 +882,8 @@ textarea {
 .resume-page {
   position: relative;
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   margin: 0;
   padding: 10px;
   background: #e8ecf1;
@@ -1068,8 +1069,8 @@ textarea {
   width: calc(var(--paper-width) * var(--paper-scale));
   height: calc(var(--paper-height) * var(--paper-scale));
   margin: 0 auto;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(18, 28, 45, 0.16);
+  background: transparent;
+  box-shadow: none;
 }
 
 .resume-frame {

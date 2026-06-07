@@ -23,6 +23,84 @@ function normalizePlainTextSegment(text, caretIndex = null) {
 }
 
 export function setupAiController(state, api) {
+  function paginateResumeDocument() {
+    const pageHeight = 1123;
+    const pagesRoot = document.querySelector(".resume-pages");
+    const sourceRoot = pagesRoot ? null : document.querySelector(".resume");
+    const sourcePageRoots = pagesRoot
+      ? Array.from(pagesRoot.children)
+        .map(page => page.firstElementChild)
+        .filter(root => root?.classList?.contains("resume"))
+      : sourceRoot
+        ? [sourceRoot]
+        : [];
+
+    if (!sourcePageRoots.length) {
+      return;
+    }
+
+    const resumeClassName = sourcePageRoots[0].className || "resume";
+    const sourceNodes = sourcePageRoots.flatMap(root => Array.from(root.childNodes).map(node => node.cloneNode(true)));
+    const nextPagesRoot = document.createElement("div");
+    nextPagesRoot.className = "resume-pages";
+    nextPagesRoot.style.position = "absolute";
+    nextPagesRoot.style.left = "-10000px";
+    nextPagesRoot.style.top = "0";
+    nextPagesRoot.style.visibility = "hidden";
+    nextPagesRoot.style.pointerEvents = "none";
+    nextPagesRoot.style.width = "794px";
+    document.body?.appendChild(nextPagesRoot);
+
+    const createPageRoot = () => {
+      const page = document.createElement("section");
+      page.className = "resume-page";
+      const resume = document.createElement("article");
+      resume.className = resumeClassName;
+      page.appendChild(resume);
+      nextPagesRoot.appendChild(page);
+      return resume;
+    };
+
+    let currentPageRoot = createPageRoot();
+    sourceNodes.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) {
+        return;
+      }
+      currentPageRoot.appendChild(node);
+      if (currentPageRoot.scrollHeight > pageHeight + 0.5) {
+        currentPageRoot.removeChild(node);
+        currentPageRoot = createPageRoot();
+        currentPageRoot.appendChild(node);
+      }
+    });
+
+    nextPagesRoot.removeAttribute("style");
+    if (pagesRoot) {
+      pagesRoot.replaceWith(nextPagesRoot);
+    } else if (sourceRoot) {
+      sourceRoot.replaceWith(nextPagesRoot);
+    } else {
+      document.body.appendChild(nextPagesRoot);
+    }
+  }
+
+  function getResumeFrameHeight(doc) {
+    return Math.max(
+      doc?.documentElement?.scrollHeight || 0,
+      doc?.body?.scrollHeight || 0,
+      1123
+    );
+  }
+
+  function syncResumeFrameHeight(iframe) {
+    const paper = state.resumePreview?.querySelector(".resume-paper");
+    const doc = iframe?.contentDocument;
+    if (!paper || !doc) {
+      return;
+    }
+    paper.style.setProperty("--paper-height", `${getResumeFrameHeight(doc)}px`);
+  }
+
   function prepareResumePreviewHtml(html) {
     const previewStyle = `<style>
       @page { size: A4; margin: 0; }
@@ -35,17 +113,41 @@ export function setupAiController(state, api) {
         width: 794px !important;
         min-width: 794px !important;
         max-width: 794px !important;
-        min-height: 1123px !important;
         margin: 0 !important;
-        overflow: hidden !important;
-        background: #fff !important;
+        overflow: visible !important;
+        background: #eef2f6 !important;
       }
-      .resume {
+      .resume-pages {
         width: 794px !important;
-        min-width: 794px !important;
-        max-width: 794px !important;
-        min-height: 1123px !important;
         margin: 0 !important;
+        padding: 18px 0 24px !important;
+      }
+      .resume-page {
+        width: 794px !important;
+        margin: 0 0 18px !important;
+        break-after: page !important;
+        page-break-after: always !important;
+      }
+      .resume-page:last-child {
+        margin-bottom: 0 !important;
+        break-after: auto !important;
+        page-break-after: auto !important;
+      }
+      @media print {
+        html, body {
+          background: #fff !important;
+        }
+        .resume-pages {
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+        }
+        .resume-page {
+          margin-bottom: 0 !important;
+          box-shadow: none !important;
+        }
+        .resume {
+          box-shadow: none !important;
+        }
       }
       .resume-private-image {
         display: block;
@@ -54,10 +156,11 @@ export function setupAiController(state, api) {
         object-fit: contain;
       }
     </style>`;
+    const previewScript = `<script>window.__paginateResume=${paginateResumeDocument.toString()};window.addEventListener("load",function(){window.__paginateResume&&window.__paginateResume();});</script>`;
     if (/<\/head>/i.test(html)) {
-      return html.replace(/<\/head>/i, `${previewStyle}</head>`);
+      return html.replace(/<\/head>/i, `${previewStyle}${previewScript}</head>`);
     }
-    return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${previewStyle}</head><body>${html}</body></html>`;
+    return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${previewStyle}${previewScript}</head><body>${html}</body></html>`;
   }
 
   function renderResumeFrame(html, title = "简历预览", options = {}) {
@@ -73,10 +176,14 @@ export function setupAiController(state, api) {
     state.resumePreview.innerHTML = `
       ${options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
       <div class="resume-paper">
-        <iframe class="resume-frame" title="${escapeHtml(title)}" srcdoc="${escapeHtml(previewHtml)}"></iframe>
+        <iframe class="resume-frame" title="${escapeHtml(title)}" scrolling="no" srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>
       ${options.templatePreview ? '<button class="template-preview-close" type="button">关闭模板预览</button>' : ""}
     `;
+    const iframe = state.resumePreview.querySelector(".resume-frame");
+    iframe?.addEventListener("load", () => {
+      window.requestAnimationFrame(() => syncResumeFrameHeight(iframe));
+    }, { once: true });
     state.resumePreview.querySelector(".template-preview-close")?.addEventListener("click", () => {
       api.restoreResumePreview?.();
     });
@@ -136,6 +243,8 @@ export function setupAiController(state, api) {
     state.currentResumeRenderedValues = Object.fromEntries(
       state.fields.map(field => [field.id || field.key, String(field.value || "")])
     );
+    iframe?.contentWindow?.__paginateResume?.();
+    syncResumeFrameHeight(iframe);
     return changed;
   }
 
@@ -152,20 +261,26 @@ export function setupAiController(state, api) {
     printFrame.style.height = "1123px";
     printFrame.style.border = "0";
     document.body.appendChild(printFrame);
-    const printDocument = printFrame.contentDocument;
-    if (!printDocument) {
+    if (!printFrame.contentDocument) {
       printFrame.remove();
       api.setStatus("导出 PDF 失败", "warning");
       return;
     }
-    printDocument.open();
-    printDocument.write(state.currentResumeHtml);
-    printDocument.close();
-    window.setTimeout(() => {
-      printFrame.contentWindow?.focus();
-      printFrame.contentWindow?.print();
-      window.setTimeout(() => printFrame.remove(), 1000);
-    }, 120);
+    printFrame.addEventListener("load", () => {
+      window.requestAnimationFrame(() => {
+        const printDocument = printFrame.contentDocument;
+        if (!printDocument) {
+          printFrame.remove();
+          api.setStatus("导出 PDF 失败", "warning");
+          return;
+        }
+        printFrame.style.height = `${getResumeFrameHeight(printDocument)}px`;
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+        window.setTimeout(() => printFrame.remove(), 1000);
+      });
+    }, { once: true });
+    printFrame.srcdoc = state.currentResumeHtml;
   };
 
   function resolvePrivateTokens(html) {
@@ -656,7 +771,7 @@ export function setupAiController(state, api) {
     state.templateList.innerHTML = templates.map(template => `
       <button class="template-card" type="button" data-template-id="${escapeHtml(template.id)}">
         <span class="template-thumb" aria-hidden="true">
-          <iframe class="template-thumb-frame" tabindex="-1" sandbox srcdoc="${escapeHtml(template.previewHtml || "")}"></iframe>
+          <iframe class="template-thumb-frame" tabindex="-1" scrolling="no" sandbox srcdoc="${escapeHtml(template.previewHtml || "")}"></iframe>
           <span class="template-name">${escapeHtml(template.name)}</span>
         </span>
       </button>
@@ -713,7 +828,7 @@ export function setupAiController(state, api) {
           }
           return {
             ...template,
-            previewHtml: prepareResumePreviewHtml(await templateResponse.text())
+            previewHtml: await templateResponse.text()
           };
         } catch {
           return {
