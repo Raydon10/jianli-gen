@@ -1105,6 +1105,10 @@ textarea {
   .workspace-panel {
     min-height: 720px;
   }
+
+  .masked-preview {
+    min-height: clamp(360px, 54vh, 620px);
+  }
 }
 
 @media print {
