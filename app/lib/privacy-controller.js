@@ -24,6 +24,17 @@ import {
 } from "./workspace-shared.js";
 
 export function setupPrivacyController(state, api) {
+  api.updateDocumentTitle = function updateDocumentTitle() {
+    const baseTitle = "简历 Gen";
+    if (!(state.privateUnlocked || state.privateMode === "plain")) {
+      document.title = baseTitle;
+      return;
+    }
+    const nameField = state.fields.find(field => field.key === "姓名");
+    const name = String(nameField?.value || "").trim();
+    document.title = name ? `${name}_简历` : baseTitle;
+  };
+
   api.setStatus = function setStatus(message, type = "info") {
     if (!state.toast) return;
     state.toast.className = `toast is-visible ${type}`;
@@ -275,6 +286,8 @@ export function setupPrivacyController(state, api) {
         <span class="status-tag ${privateClass}">${!fieldValidation.valid ? "需修改" : privateDirty(state) ? "未保存" : "已保存"}</span>
       `;
     }
+
+    api.updateDocumentTitle();
   };
 
   api.renderTutorialDrawer = function renderTutorialDrawer() {
