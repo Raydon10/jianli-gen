@@ -51,7 +51,7 @@ export function isFixedPrivateField(field) {
 }
 
 export function createInitialPrivateFields(state) {
-  return createEmptyPrivateFields(state, defaultPrivateKeys);
+  return createEmptyPrivateFields(state, defaultPrivateKeys, ["text", "photo", "text", "text", "text"]);
 }
 
 export function ensureInitialPrivateFields(state, fields) {

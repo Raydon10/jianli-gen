@@ -271,16 +271,19 @@ export function setupPrivacyController(state, api) {
   };
 
   api.regeneratePublicExample = function regeneratePublicExample() {
-    if (state.hasEncryptedPrivate && !state.privateUnlocked) {
-      api.setStatus("请先用密钥解锁隐私信息", "warning");
+    const confirmed = window.confirm("确认清空？这会清空脱敏简历和隐私信息，并恢复为初始状态。");
+    if (!confirmed) {
       return;
     }
-    state.publicSampleIndex = (state.publicSampleIndex + 1) % state.demoSamples.length;
-    applySample(state, state.demoSamples[state.publicSampleIndex]);
+    applySample(state, state.demoSamples[0]);
+    state.savedMaskedPublicMarkdown = "";
+    state.savedPrivateValues = {};
+    state.savedPrivateFingerprint = "";
     api.renderFields();
     api.renderAiEditor();
     api.updateOutput();
     api.renderStatus();
+    api.setStatus("已恢复初始状态，保存后会更新文件", "ok");
   };
 
   api.apiRead = async function apiRead(path) {

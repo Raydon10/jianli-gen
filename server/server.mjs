@@ -15,7 +15,8 @@ const privatePath = join(privateDir, "隐私信息.json");
 const statePath = join(privateDir, "state.json");
 const port = Number(process.env.PORT || 8790);
 const host = "0.0.0.0";
-const defaultPrivateKeys = ["姓名", "手机", "邮箱"];
+const defaultPrivateKeys = ["姓名", "照片", "手机", "邮箱", "公司"];
+const defaultPrivateTypes = ["text", "photo", "text", "text", "text"];
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -226,7 +227,7 @@ async function handleApi(request, response) {
         : defaultPrivateKeys;
       const types = Array.isArray(state.privateFieldTypes) && state.privateFieldTypes.length
         ? state.privateFieldTypes
-        : keys.map(() => "text");
+        : keys.map((_, index) => defaultPrivateTypes[index] || "text");
       const plainPayload = {
         mode: "plain",
         fields: keys.map((key, index) => ({
@@ -248,7 +249,7 @@ async function handleApi(request, response) {
       privateMode: "plain",
       privateCipherHash: null,
       privateFieldKeys: defaultPrivateKeys,
-      privateFieldTypes: defaultPrivateKeys.map(() => "text"),
+      privateFieldTypes: defaultPrivateTypes,
       privateFieldCount: defaultPrivateKeys.length,
       privateClearedAt: new Date().toISOString()
     });
