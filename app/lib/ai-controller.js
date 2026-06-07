@@ -24,6 +24,28 @@ function normalizePlainTextSegment(text, caretIndex = null) {
 
 export function setupAiController(state, api) {
   function paginateResumeDocument() {
+    function getResolvedResumePageBackground(pageRoot) {
+      const styles = [
+        pageRoot ? getComputedStyle(pageRoot) : null,
+        document.body ? getComputedStyle(document.body) : null,
+        document.documentElement ? getComputedStyle(document.documentElement) : null
+      ].filter(Boolean);
+
+      for (const style of styles) {
+        const backgroundImage = String(style.backgroundImage || "").trim();
+        const backgroundColor = String(style.backgroundColor || "").trim();
+        const background = String(style.background || "").trim();
+        if (backgroundImage && backgroundImage !== "none") {
+          return background || backgroundColor || "#fff";
+        }
+        if (backgroundColor && !/^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)$/i.test(backgroundColor) && backgroundColor !== "transparent") {
+          return background || backgroundColor || "#fff";
+        }
+      }
+
+      return "#fff";
+    }
+
     const pageHeight = 1123;
     const pagesRoot = document.querySelector(".resume-pages");
     const sourceRoot = pagesRoot ? null : document.querySelector(".resume");
@@ -40,6 +62,7 @@ export function setupAiController(state, api) {
     }
 
     const resumeClassName = sourcePageRoots[0].className || "resume";
+    const pageBackground = getResolvedResumePageBackground(sourcePageRoots[0]);
     const sourceNodes = sourcePageRoots.flatMap(root => Array.from(root.childNodes).map(node => node.cloneNode(true)));
     const nextPagesRoot = document.createElement("div");
     nextPagesRoot.className = "resume-pages";
@@ -54,6 +77,7 @@ export function setupAiController(state, api) {
     const createPageRoot = () => {
       const page = document.createElement("section");
       page.className = "resume-page";
+      page.style.setProperty("--resume-page-bg", pageBackground);
       const resume = document.createElement("article");
       resume.className = resumeClassName;
       page.appendChild(resume);
@@ -138,7 +162,7 @@ export function setupAiController(state, api) {
         height: 1123px !important;
         margin: 0 0 18px !important;
         overflow: hidden !important;
-        background: #fff !important;
+        background: var(--resume-page-bg, #fff) !important;
         box-shadow: 0 16px 36px rgba(18, 28, 45, 0.08) !important;
         break-after: page !important;
         page-break-after: always !important;
