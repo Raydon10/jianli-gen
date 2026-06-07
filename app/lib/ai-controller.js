@@ -53,7 +53,7 @@ export function setupAiController(state, api) {
     return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${previewStyle}</head><body>${html}</body></html>`;
   }
 
-  function renderResumeFrame(html, title = "简历预览") {
+  function renderResumeFrame(html, title = "简历预览", options = {}) {
     if (!state.resumePreview) {
       return;
     }
@@ -63,7 +63,11 @@ export function setupAiController(state, api) {
       <div class="resume-paper">
         <iframe class="resume-frame" title="${escapeHtml(title)}" sandbox srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>
+      ${options.templatePreview ? '<button class="template-preview-close" type="button">关闭模板预览</button>' : ""}
     `;
+    state.resumePreview.querySelector(".template-preview-close")?.addEventListener("click", () => {
+      api.restoreResumePreview?.();
+    });
     api.updateResumePreviewScale?.();
   }
 
@@ -119,6 +123,14 @@ export function setupAiController(state, api) {
     state.templateList?.querySelectorAll(".template-card").forEach(card => {
       card.classList.remove("is-selected");
     });
+  }
+
+  function renderAiOutputPreview() {
+    if (state.aiOutputSourceHtml) {
+      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览");
+    } else if (!state.aiOutputVersion) {
+      renderResumeEmptyState();
+    }
   }
 
   function serializedNodeLength(node) {
@@ -507,11 +519,7 @@ export function setupAiController(state, api) {
   };
 
   api.updateOutput = function updateOutput() {
-    if (state.aiOutputSourceHtml) {
-      renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "AI 生成简历预览");
-    } else if (!state.aiOutputVersion) {
-      api.generateResumePreview();
-    }
+    renderAiOutputPreview();
   };
 
   api.updateResumePreviewScale = function updateResumePreviewScale() {
@@ -528,6 +536,19 @@ export function setupAiController(state, api) {
 
   api.generateResumePreview = function generateResumePreview() {
     clearTemplateSelection();
+    renderResumeEmptyState();
+  };
+
+  api.restoreResumePreview = function restoreResumePreview() {
+    clearTemplateSelection();
+    if (state.aiOutputSourceHtml) {
+      renderAiOutputPreview();
+      return;
+    }
+    if (state.aiOutputVersion) {
+      api.loadAiOutput(state.aiOutputVersion);
+      return;
+    }
     renderResumeEmptyState();
   };
 
@@ -636,7 +657,7 @@ export function setupAiController(state, api) {
       }
       const html = await response.text();
       state.selectedTemplateId = templateId;
-      renderResumeFrame(html, "简历模版预览");
+      renderResumeFrame(html, "简历模版预览", { templatePreview: true });
       state.templateList?.querySelectorAll(".template-card").forEach(card => {
         card.classList.toggle("is-selected", card.dataset.templateId === templateId);
       });

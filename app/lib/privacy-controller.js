@@ -431,7 +431,7 @@ export function setupPrivacyController(state, api) {
       await api.savePlainPrivateData();
       api.renderFields();
       api.renderAiEditor();
-      api.generateResumePreview();
+      api.restoreResumePreview?.();
       api.renderStatus();
       api.setPrivateUnlockPopoverOpen(false);
       api.setStatus("隐私值已清空，已切换到无需密钥状态", "ok");
@@ -439,7 +439,7 @@ export function setupPrivacyController(state, api) {
       state.fields = previousFields;
       api.renderFields();
       api.renderAiEditor();
-      api.generateResumePreview();
+      api.restoreResumePreview?.();
       api.renderStatus();
       api.setStatus("清空失败，请确认本地服务已启动", "warning");
     }
@@ -453,7 +453,7 @@ export function setupPrivacyController(state, api) {
       api.setPrivateUnlockPopoverOpen(false);
       api.renderFields();
       api.renderAiEditor();
-      api.generateResumePreview();
+      api.restoreResumePreview?.();
       api.renderStatus();
       if (!silent) {
         api.setStatus("当前是无需密钥状态，可直接编辑隐私信息", "ok");
@@ -466,7 +466,7 @@ export function setupPrivacyController(state, api) {
       api.setPrivateUnlockPopoverOpen(false);
       api.renderFields();
       api.renderAiEditor();
-      api.generateResumePreview();
+      api.restoreResumePreview?.();
       api.renderStatus();
       api.setStatus("隐私信息已锁定", "ok");
       return;
@@ -496,7 +496,7 @@ export function setupPrivacyController(state, api) {
       api.updateRememberedUnlockPassword(password);
       api.renderFields();
       api.renderAiEditor();
-      api.generateResumePreview();
+      api.restoreResumePreview?.();
       api.renderStatus();
       if (!silent) {
         api.setStatus("隐私信息已解锁", "ok");
@@ -506,7 +506,7 @@ export function setupPrivacyController(state, api) {
       api.lockEncryptedPrivateData();
       api.renderFields();
       api.renderAiEditor();
-      api.generateResumePreview();
+      api.restoreResumePreview?.();
       api.renderStatus();
       if (!silent) {
         api.setStatus("密钥不正确，无法解锁隐私信息", "warning");
