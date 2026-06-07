@@ -31,7 +31,16 @@ export function setupAiController(state, api) {
 
   function paginateResumeDocument() {
     function getResolvedResumePageBackground(pageRoot) {
+      const currentPage = pageRoot?.closest?.(".resume-page");
+      if (currentPage) {
+        const inlinePageBackground = String(currentPage.style.getPropertyValue("--resume-page-bg") || "").trim();
+        if (inlinePageBackground) {
+          return inlinePageBackground;
+        }
+      }
+
       const styles = [
+        currentPage ? getComputedStyle(currentPage) : null,
         pageRoot ? getComputedStyle(pageRoot) : null,
         document.body ? getComputedStyle(document.body) : null,
         document.documentElement ? getComputedStyle(document.documentElement) : null
@@ -120,6 +129,13 @@ export function setupAiController(state, api) {
       doc?.body?.scrollHeight || 0,
       1123
     );
+  }
+
+  function serializeResumeDocument(doc) {
+    if (!doc?.documentElement) {
+      return state.currentResumeHtml || "";
+    }
+    return `<!doctype html>${doc.documentElement.outerHTML}`;
   }
 
   function syncResumeFrameHeight(iframe) {
@@ -226,11 +242,13 @@ export function setupAiController(state, api) {
       : {};
     state.resumePreview.innerHTML = `
       ${options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
+      <div class="resume-private-hint" id="previewSaveHint" hidden>隐私信息有变更，保存后更新预览</div>
       <div class="resume-paper">
         <iframe class="resume-frame" title="${escapeHtml(title)}" scrolling="no" srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>
       ${options.templatePreview ? '<button class="template-preview-close" type="button">关闭模板预览</button>' : ""}
     `;
+    state.previewSaveHint = state.resumePreview.querySelector("#previewSaveHint");
     const iframe = state.resumePreview.querySelector(".resume-frame");
     iframe?.addEventListener("load", () => {
       window.requestAnimationFrame(() => syncResumeFrameHeight(iframe));
@@ -321,6 +339,7 @@ export function setupAiController(state, api) {
       state.fields.map(field => [field.id || field.key, getRenderedPrivateValue(field)])
     );
     iframe?.contentWindow?.__paginateResume?.();
+    state.currentResumeHtml = serializeResumeDocument(doc);
     syncResumeFrameHeight(iframe);
     return changed;
   }

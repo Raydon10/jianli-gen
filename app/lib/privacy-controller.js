@@ -253,6 +253,9 @@ export function setupPrivacyController(state, api) {
     if (state.saveHint) {
       state.saveHint.hidden = !(publicHasUnsavedChanges || privateHasIssue);
     }
+    if (state.previewSaveHint) {
+      state.previewSaveHint.hidden = !privateDirty(state);
+    }
     if (state.privateUnlockPopover) {
       const showForPlainModeAction = state.privateMode === "plain" && state.privateUnlockAction === "save";
       state.privateUnlockPopover.hidden = !state.privateUnlockPopoverOpen || (state.privateUnlocked && !showForPlainModeAction);
