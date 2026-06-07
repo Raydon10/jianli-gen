@@ -14,7 +14,7 @@ const skillOutputPath = join(maskedResumeDir, "Skill生成的简历.html");
 const privatePath = join(privateDir, "隐私信息.json");
 const statePath = join(privateDir, "state.json");
 const port = Number(process.env.PORT || 8790);
-const host = "0.0.0.0";
+const host = process.env.HOST || "127.0.0.1";
 const defaultPrivateKeys = ["姓名", "照片", "手机", "邮箱", "公司"];
 const defaultPrivateTypes = ["text", "photo", "text", "text", "text"];
 
