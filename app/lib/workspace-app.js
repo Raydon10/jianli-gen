@@ -12,6 +12,8 @@ export function initJianliApp() {
     maskedPreview: document.querySelector("#maskedPreview"),
     resumePreview: document.querySelector("#resumePreview"),
     templateList: document.querySelector("#templateList"),
+    templateScrollLeftButton: document.querySelector("#templateScrollLeft"),
+    templateScrollRightButton: document.querySelector("#templateScrollRight"),
     addFieldButton: document.querySelector("#addField"),
     printButton: document.querySelector("#printResume"),
     regeneratePublicButton: document.querySelector("#regeneratePublic"),
@@ -81,6 +83,8 @@ export function initJianliApp() {
     event.stopPropagation();
     api.saveAllData();
   });
+  state.templateScrollLeftButton?.addEventListener("click", () => api.scrollTemplateList?.(-1));
+  state.templateScrollRightButton?.addEventListener("click", () => api.scrollTemplateList?.(1));
   state.clearPrivateButton?.addEventListener("click", () => api.clearPrivateData());
   state.clearPrivateButton?.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
@@ -104,7 +108,10 @@ export function initJianliApp() {
       api.scheduleAiNormalization();
     }
   });
-  window.addEventListener("resize", () => api.updateResumePreviewScale?.());
+  window.addEventListener("resize", () => {
+    api.updateResumePreviewScale?.();
+    api.updateTemplateScrollControls?.();
+  });
   state.maskedPreview.addEventListener("focusin", () => {
     state.aiEditorFocused = true;
   });

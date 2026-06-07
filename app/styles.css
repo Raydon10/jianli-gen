@@ -761,36 +761,86 @@ textarea {
 .resume-page {
   overflow: auto;
   margin: 0;
-  padding: 20px;
+  padding: 10px;
   background: #e8ecf1;
 }
 
 .template-section {
   border-top: 1px solid var(--line);
-  padding: 12px;
+  padding: 8px 10px;
   background: var(--soft);
 }
 
 .template-section-title {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
+.template-strip {
+  position: relative;
+}
+
+.template-scroll-button {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 18px rgba(18, 28, 45, 0.12);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.template-scroll-button[hidden] {
+  display: none;
+}
+
+.template-scroll-button:first-child {
+  left: 4px;
+}
+
+.template-scroll-button:last-child {
+  right: 4px;
+}
+
+.template-scroll-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent), white 94%);
+}
+
 .template-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.template-list.has-overflow {
+  padding: 0 34px;
+}
+
+.template-list::-webkit-scrollbar {
+  display: none;
 }
 
 .template-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  min-height: 54px;
-  padding: 9px 10px;
+  flex: 0 0 88px;
+  display: block;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -806,8 +856,40 @@ textarea {
 }
 
 .template-name {
-  font-size: 12px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  padding: 4px 5px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  font-size: 11px;
   font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.template-thumb {
+  --thumb-scale: 0.108;
+  position: relative;
+  display: block;
+  width: 86px;
+  height: 122px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.template-thumb-frame {
+  display: block;
+  width: 794px;
+  height: 1123px;
+  border: 0;
+  background: #fff;
+  transform: scale(var(--thumb-scale));
+  transform-origin: top left;
+  pointer-events: none;
 }
 
 .resume-paper {

@@ -501,7 +501,9 @@ export function setupAiController(state, api) {
     if (!paper || !state.resumePreview) {
       return;
     }
-    const availableWidth = Math.max(0, state.resumePreview.clientWidth - 40);
+    const previewStyle = getComputedStyle(state.resumePreview);
+    const horizontalPadding = parseFloat(previewStyle.paddingLeft || "0") + parseFloat(previewStyle.paddingRight || "0");
+    const availableWidth = Math.max(0, state.resumePreview.clientWidth - horizontalPadding);
     const scale = Math.min(1, availableWidth / 794);
     paper.style.setProperty("--paper-scale", String(scale || 1));
   };
@@ -573,11 +575,41 @@ export function setupAiController(state, api) {
     }
     state.templateList.innerHTML = templates.map(template => `
       <button class="template-card" type="button" data-template-id="${escapeHtml(template.id)}">
-        <span class="template-name">${escapeHtml(template.name)}</span>
+        <span class="template-thumb" aria-hidden="true">
+          <iframe class="template-thumb-frame" tabindex="-1" sandbox srcdoc="${escapeHtml(template.previewHtml || "")}"></iframe>
+          <span class="template-name">${escapeHtml(template.name)}</span>
+        </span>
       </button>
     `).join("");
     state.templateList.querySelectorAll("[data-template-id]").forEach(button => {
       button.addEventListener("click", () => api.previewResumeTemplate(button.dataset.templateId || ""));
+    });
+    requestAnimationFrame(() => api.updateTemplateScrollControls?.());
+  };
+
+  api.updateTemplateScrollControls = function updateTemplateScrollControls() {
+    if (!state.templateList) {
+      return;
+    }
+    const hasOverflow = state.templateList.scrollWidth > state.templateList.clientWidth + 1;
+    state.templateList.classList.toggle("has-overflow", hasOverflow);
+    if (state.templateScrollLeftButton) {
+      state.templateScrollLeftButton.hidden = !hasOverflow;
+    }
+    if (state.templateScrollRightButton) {
+      state.templateScrollRightButton.hidden = !hasOverflow;
+    }
+  };
+
+  api.scrollTemplateList = function scrollTemplateList(direction) {
+    if (!state.templateList) {
+      return;
+    }
+    const card = state.templateList.querySelector(".template-card");
+    const distance = card ? card.getBoundingClientRect().width + 12 : 132;
+    state.templateList.scrollBy({
+      left: direction * distance,
+      behavior: "smooth"
     });
   };
 
@@ -591,7 +623,25 @@ export function setupAiController(state, api) {
         throw new Error("简历模版读取失败");
       }
       const payload = await response.json();
-      api.renderTemplateList(Array.isArray(payload.templates) ? payload.templates : []);
+      const templates = Array.isArray(payload.templates) ? payload.templates : [];
+      const templatesWithPreview = await Promise.all(templates.map(async template => {
+        try {
+          const templateResponse = await fetch(`/api/resume-templates/${encodeURIComponent(template.id)}`);
+          if (!templateResponse.ok) {
+            throw new Error("简历模版读取失败");
+          }
+          return {
+            ...template,
+            previewHtml: prepareResumePreviewHtml(await templateResponse.text())
+          };
+        } catch {
+          return {
+            ...template,
+            previewHtml: ""
+          };
+        }
+      }));
+      api.renderTemplateList(templatesWithPreview);
     } catch {
       state.templateList.innerHTML = `<div class="empty-hint">简历模版读取失败</div>`;
     }
