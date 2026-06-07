@@ -144,7 +144,6 @@ export function initJianliApp() {
       state.aiNormalizeTimer = null;
     }
     api.normalizeAndRenderAiEditor(true);
-    api.updateOutput();
     api.renderStatus();
   });
 

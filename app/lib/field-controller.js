@@ -75,9 +75,7 @@ export function setupFieldController(state, api) {
         if (locked || fixedField) return;
         const nextKey = event.target.value.trim();
         state.fields[index].key = nextKey;
-        if (!state.aiEditorFocused) {
-          api.renderAiEditor();
-        }
+        api.renderAiEditor();
         if (state.aiEditor) {
           state.publicDraftMarkdown = state.aiEditor.serialize();
         }
@@ -106,9 +104,7 @@ export function setupFieldController(state, api) {
             state.fields[index].value = await fileToDataUrl(file);
             event.target.value = "";
             api.renderFields();
-            if (!state.aiEditorFocused) {
-              api.renderAiEditor();
-            }
+            api.renderAiEditor();
             api.updateOutput();
             api.renderStatus();
             api.renderPrivateFieldValidation();
@@ -120,9 +116,7 @@ export function setupFieldController(state, api) {
         card.querySelector(".field-value").addEventListener("input", event => {
           if (locked) return;
           state.fields[index].value = event.target.value;
-          if (!state.aiEditorFocused) {
-            api.renderAiEditor();
-          }
+          api.renderAiEditor();
           api.updateOutput();
           api.renderStatus();
           api.renderPrivateFieldValidation();

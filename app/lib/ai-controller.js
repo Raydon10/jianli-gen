@@ -496,7 +496,6 @@ export function setupAiController(state, api) {
 
   api.syncMaskedPublicText = function syncMaskedPublicText() {
     state.publicDraftMarkdown = normalizeAiText(serializeAiEditor());
-    api.updateOutput();
     api.renderStatus();
   };
 
@@ -517,7 +516,6 @@ export function setupAiController(state, api) {
       onChange: text => {
         state.publicDraftMarkdown = text;
         state.aiRenderSignature = `${normalizeAiText(text)}\u0000${privateFingerprint(state)}`;
-        api.updateOutput();
         api.renderStatus();
       },
       onFocusChange: focused => {
@@ -535,7 +533,6 @@ export function setupAiController(state, api) {
     state.aiNormalizeTimer = window.setTimeout(() => {
       state.aiNormalizeTimer = null;
       api.normalizeAndRenderAiEditor(false);
-      api.updateOutput();
       api.renderStatus();
     }, 260);
   };
