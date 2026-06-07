@@ -120,13 +120,25 @@ export function setupAiController(state, api) {
       .resume-pages {
         width: 794px !important;
         margin: 0 !important;
-        padding: 18px 0 24px !important;
+        padding: 0 !important;
       }
       .resume-page {
         width: 794px !important;
+        min-height: 1123px !important;
+        height: 1123px !important;
         margin: 0 0 18px !important;
+        overflow: hidden !important;
+        background: #fff !important;
+        box-shadow: 0 16px 36px rgba(18, 28, 45, 0.08) !important;
         break-after: page !important;
         page-break-after: always !important;
+      }
+      .resume-page > .resume {
+        width: 100% !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
       }
       .resume-page:last-child {
         margin-bottom: 0 !important;
@@ -138,14 +150,13 @@ export function setupAiController(state, api) {
           background: #fff !important;
         }
         .resume-pages {
-          padding-top: 0 !important;
-          padding-bottom: 0 !important;
+          padding: 0 !important;
         }
         .resume-page {
           margin-bottom: 0 !important;
           box-shadow: none !important;
         }
-        .resume {
+        .resume-page > .resume {
           box-shadow: none !important;
         }
       }
