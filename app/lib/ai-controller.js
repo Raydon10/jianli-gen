@@ -46,6 +46,12 @@ export function setupAiController(state, api) {
         min-height: 1123px !important;
         margin: 0 !important;
       }
+      .resume-private-image {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        object-fit: contain;
+      }
     </style>`;
     if (/<\/head>/i.test(html)) {
       return html.replace(/<\/head>/i, `${previewStyle}</head>`);
@@ -107,6 +113,9 @@ export function setupAiController(state, api) {
     }
     return String(html || "").replace(/\{\{([^{}]+)\}\}/g, (token, key) => {
       const field = state.fields.find(item => item.key === String(key).trim());
+      if (field?.type === "photo" && field.value?.startsWith("data:image/")) {
+        return `<img class="resume-private-image" src="${escapeHtml(field.value)}" alt="${escapeHtml(field.key)}">`;
+      }
       return field?.value || token;
     });
   }

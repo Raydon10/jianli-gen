@@ -195,9 +195,9 @@ export function setupPrivacyController(state, api) {
     return state.privateKeyInput?.value || api.getRememberedUnlockPassword();
   };
 
-  api.clearRememberedPrivatePassword = function clearRememberedPrivatePassword() {
+  api.clearRememberedPrivatePassword = function clearRememberedPrivatePassword(options = {}) {
     sessionStorage.removeItem(state.rememberedUnlockPasswordKey);
-    if (state.rememberUnlockCheckbox) {
+    if (state.rememberUnlockCheckbox && !options.preserveChoice) {
       state.rememberUnlockCheckbox.checked = false;
     }
     if (state.privateKeyInput) {
@@ -546,7 +546,7 @@ export function setupPrivacyController(state, api) {
       api.setPrivateUnlockPopoverOpen(false);
       api.setStatus("隐私信息已解锁", "ok");
     } else {
-      api.clearRememberedPrivatePassword();
+      api.clearRememberedPrivatePassword({ preserveChoice: true });
       api.setStatus("密钥不正确，无法解锁隐私信息", "warning");
     }
   };
