@@ -1,6 +1,6 @@
 ---
-name: jianli-gen
-description: Generate and update a resume HTML file for the Jianli Gen local app from a saved Skill-readable masked resume and selected template. Use when the user asks this Skill to generate, regenerate, update, or inspect the Skill-generated resume for the Jianli Gen project, especially using files under 简历数据/脱敏简历 and 简历数据/简历模版. Also use for lifecycle guidance after GitHub installation, local app startup, and safe file-based resume generation without reading browser-only privacy data.
+name: 简历 Gen
+description: 保护隐私的简历 Skill。隐私信息加密管理，轻松生成专业简历。
 ---
 
 # Jianli Gen
