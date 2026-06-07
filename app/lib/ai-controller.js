@@ -674,8 +674,25 @@ export function setupAiController(state, api) {
     const html = await response.text();
     clearTemplateSelection();
     state.aiOutputVersion = version || state.aiOutputVersion;
+    state.pendingAiOutputVersion = "";
     state.aiOutputSourceHtml = html;
+    api.updateLatestResumeButton?.();
     renderResumeFrame(resolvePrivateTokens(html), "AI 生成简历预览");
+  };
+
+  api.updateLatestResumeButton = function updateLatestResumeButton() {
+    if (!state.viewLatestResumeButton) {
+      return;
+    }
+    state.viewLatestResumeButton.hidden = !state.pendingAiOutputVersion;
+  };
+
+  api.viewLatestAiOutput = async function viewLatestAiOutput() {
+    if (!state.pendingAiOutputVersion) {
+      return;
+    }
+    await api.loadAiOutput(state.pendingAiOutputVersion);
+    api.setStatus("已显示最新 AI 生成简历", "ok");
   };
 
   api.checkAiOutputUpdate = async function checkAiOutputUpdate({ initial = false } = {}) {
@@ -696,8 +713,9 @@ export function setupAiController(state, api) {
         return;
       }
       if (meta.version !== state.aiOutputVersion) {
-        await api.loadAiOutput(meta.version);
-        api.setStatus("AI 生成简历已更新", "ok");
+        state.pendingAiOutputVersion = meta.version;
+        api.updateLatestResumeButton?.();
+        api.setStatus("AI 生成简历已更新，可查看最新", "ok");
       }
     } catch {
       // 外部 Skill 可能尚未生成 AI生成的简历.html，静默等待下一次轮询。
@@ -705,12 +723,24 @@ export function setupAiController(state, api) {
   };
 
   api.startAiOutputPolling = function startAiOutputPolling() {
-    api.checkAiOutputUpdate({ initial: true });
     if (state.aiOutputPollTimer) {
       clearInterval(state.aiOutputPollTimer);
+      state.aiOutputPollTimer = null;
     }
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    api.checkAiOutputUpdate({ initial: true });
     state.aiOutputPollTimer = window.setInterval(() => {
       api.checkAiOutputUpdate();
-    }, 5000);
+    }, 1000);
+  };
+
+  api.stopAiOutputPolling = function stopAiOutputPolling() {
+    if (!state.aiOutputPollTimer) {
+      return;
+    }
+    clearInterval(state.aiOutputPollTimer);
+    state.aiOutputPollTimer = null;
   };
 }

@@ -157,6 +157,18 @@ h2 {
   white-space: nowrap;
 }
 
+.latest-resume-button {
+  border-color: #1f9d67;
+  background: #e8f7ef;
+  color: #10613e;
+}
+
+.latest-resume-button:hover {
+  border-color: #158052;
+  background: #d7f0e3;
+  color: #0b4f32;
+}
+
 .header-actions {
   display: flex;
   align-items: center;

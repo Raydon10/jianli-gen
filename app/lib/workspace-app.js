@@ -16,6 +16,7 @@ export function initJianliApp() {
     templateScrollRightButton: document.querySelector("#templateScrollRight"),
     addFieldButton: document.querySelector("#addField"),
     printButton: document.querySelector("#printResume"),
+    viewLatestResumeButton: document.querySelector("#viewLatestResume"),
     regeneratePublicButton: document.querySelector("#regeneratePublic"),
     privateKeyInput: document.querySelector("#privateKey"),
     unlockPrivateButton: document.querySelector("#unlockPrivate"),
@@ -52,6 +53,9 @@ export function initJianliApp() {
   state.regeneratePublicButton.addEventListener("click", () => api.regeneratePublicExample());
   state.printButton.addEventListener("click", () => {
     api.printCurrentResume?.();
+  });
+  state.viewLatestResumeButton?.addEventListener("click", () => {
+    api.viewLatestAiOutput?.();
   });
   state.unlockPrivateButton.addEventListener("click", () => {
     if (state.privateMode === "plain") {
@@ -110,6 +114,13 @@ export function initJianliApp() {
   window.addEventListener("resize", () => {
     api.updateResumePreviewScale?.();
     api.updateTemplateScrollControls?.();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      api.startAiOutputPolling?.();
+      return;
+    }
+    api.stopAiOutputPolling?.();
   });
   state.maskedPreview.addEventListener("focusin", () => {
     state.aiEditorFocused = true;
