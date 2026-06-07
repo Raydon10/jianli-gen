@@ -23,12 +23,6 @@ function normalizePlainTextSegment(text, caretIndex = null) {
 }
 
 export function setupAiController(state, api) {
-  function getResumeExportFileName() {
-    const nameField = state.fields.find(field => field.key === "姓名");
-    const name = String(nameField?.value || "").trim() || "简历";
-    return `${name}_简历`;
-  }
-
   function paginateResumeDocument() {
     function getResolvedResumePageBackground(pageRoot) {
       const currentPage = pageRoot?.closest?.(".resume-page");
@@ -370,7 +364,6 @@ export function setupAiController(state, api) {
           api.setStatus("导出 PDF 失败", "warning");
           return;
         }
-        printDocument.title = getResumeExportFileName();
         printFrame.style.height = `${getResumeFrameHeight(printDocument)}px`;
         printFrame.contentWindow?.focus();
         printFrame.contentWindow?.print();
