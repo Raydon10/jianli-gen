@@ -106,6 +106,8 @@ export function createWorkspaceState() {
     aiRenderSignature: "",
     aiOutputVersion: "",
     pendingAiOutputVersion: "",
+    currentResumeResolved: false,
+    currentResumeRenderedValues: {},
     aiOutputPollTimer: null,
     dragSourceIndex: null,
     dragTargetIndex: null,

@@ -1,6 +1,7 @@
 import {
   escapeHtml,
   normalizeAiText,
+  escapeRegExp,
   getSharedTextBounds,
   isSpanSaved,
   getTokenLabel,
@@ -65,10 +66,14 @@ export function setupAiController(state, api) {
     }
     const previewHtml = prepareResumePreviewHtml(html);
     state.currentResumeHtml = previewHtml;
+    state.currentResumeResolved = Boolean(options.privateResolved);
+    state.currentResumeRenderedValues = options.privateResolved
+      ? Object.fromEntries(state.fields.map(field => [field.id || field.key, String(field.value || "")]))
+      : {};
     state.resumePreview.innerHTML = `
       ${options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
       <div class="resume-paper">
-        <iframe class="resume-frame" title="${escapeHtml(title)}" sandbox srcdoc="${escapeHtml(previewHtml)}"></iframe>
+        <iframe class="resume-frame" title="${escapeHtml(title)}" srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>
       ${options.templatePreview ? '<button class="template-preview-close" type="button">关闭模板预览</button>' : ""}
     `;
@@ -76,6 +81,62 @@ export function setupAiController(state, api) {
       api.restoreResumePreview?.();
     });
     api.updateResumePreviewScale?.();
+  }
+
+  function updateResumeFrameValues() {
+    const iframe = state.resumePreview?.querySelector(".resume-frame");
+    const doc = iframe?.contentDocument;
+    if (!doc) {
+      return false;
+    }
+
+    const currentByKey = new Map(state.fields.map(field => [String(field.key || "").trim(), field]));
+    const renderedById = new Map(Object.entries(state.currentResumeRenderedValues || {}));
+    const walker = doc.createTreeWalker(doc.body || doc.documentElement, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    let changed = false;
+
+    while (node) {
+      const source = node.nodeValue || "";
+      let nextValue = source;
+      for (const currentField of currentByKey.values()) {
+        const fieldId = currentField.id || currentField.key;
+        const previousValue = String(renderedById.get(fieldId) || "");
+        const nextFieldValue = String(currentField?.value || "");
+        if (!previousValue || previousValue === nextFieldValue) {
+          continue;
+        }
+        if (currentField?.type === "photo" && nextFieldValue.startsWith("data:image/")) {
+          continue;
+        }
+        if (nextValue.includes(previousValue)) {
+          nextValue = nextValue.replace(new RegExp(escapeRegExp(previousValue), "g"), nextFieldValue);
+          changed = true;
+        }
+      }
+      if (nextValue !== source) {
+        node.nodeValue = nextValue;
+        changed = true;
+      }
+      node = walker.nextNode();
+    }
+
+    const imageNodes = doc.querySelectorAll?.("img.resume-private-image[alt]");
+    imageNodes?.forEach(img => {
+      const key = String(img.getAttribute("alt") || "").trim();
+      const field = currentByKey.get(key);
+      if (field?.type === "photo" && field.value?.startsWith("data:image/")) {
+        if (img.getAttribute("src") !== field.value) {
+          img.setAttribute("src", field.value);
+          changed = true;
+        }
+      }
+    });
+
+    state.currentResumeRenderedValues = Object.fromEntries(
+      state.fields.map(field => [field.id || field.key, String(field.value || "")])
+    );
+    return changed;
   }
 
   api.printCurrentResume = function printCurrentResume() {
@@ -137,8 +198,20 @@ export function setupAiController(state, api) {
 
   function renderAiOutputPreview() {
     if (state.aiOutputSourceHtml) {
+      if (state.privateUnlocked && state.privateValuesResolved) {
+        if (state.currentResumeResolved && state.resumePreview?.querySelector(".resume-frame")?.contentDocument && state.currentResumeHtml) {
+          updateResumeFrameValues();
+          return;
+        }
+        renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "Skill 生成简历预览", {
+          privateLockedHint: false,
+          privateResolved: true
+        });
+        return;
+      }
       renderResumeFrame(resolvePrivateTokens(state.aiOutputSourceHtml), "Skill 生成简历预览", {
-        privateLockedHint: !state.privateUnlocked
+        privateLockedHint: !state.privateUnlocked,
+        privateResolved: false
       });
     } else if (!state.aiOutputVersion) {
       renderResumeEmptyState();
