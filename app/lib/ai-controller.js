@@ -56,6 +56,8 @@ export function setupAiController(state, api) {
     }
 
     const pageHeight = 1123;
+    const pageEdgeGap = 42;
+    const safePageHeight = pageHeight - pageEdgeGap * 2;
     const pagesRoot = document.querySelector(".resume-pages");
     const sourceRoot = pagesRoot ? null : document.querySelector(".resume");
     const sourcePageRoots = pagesRoot
@@ -83,28 +85,83 @@ export function setupAiController(state, api) {
     nextPagesRoot.style.width = "794px";
     document.body?.appendChild(nextPagesRoot);
 
-    const createPageRoot = () => {
+    const createPage = () => {
       const page = document.createElement("section");
       page.className = "resume-page";
       page.style.setProperty("--resume-page-bg", pageBackground);
-      const resume = document.createElement("article");
-      resume.className = resumeClassName;
-      page.appendChild(resume);
       nextPagesRoot.appendChild(page);
-      return resume;
+      return page;
     };
 
-    let currentPageRoot = createPageRoot();
+    const sourceClone = document.createElement("article");
+    sourceClone.className = resumeClassName;
     sourceNodes.forEach(node => {
       if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) {
         return;
       }
-      currentPageRoot.appendChild(node);
-      if (currentPageRoot.scrollHeight > pageHeight + 0.5) {
-        currentPageRoot.removeChild(node);
-        currentPageRoot = createPageRoot();
-        currentPageRoot.appendChild(node);
+      sourceClone.appendChild(node);
+    });
+    nextPagesRoot.appendChild(sourceClone);
+    const contentHeight = Math.max(sourceClone.scrollHeight, sourceClone.getBoundingClientRect().height, pageHeight);
+    const sourceTop = sourceClone.getBoundingClientRect().top;
+    const breakCandidates = Array.from(sourceClone.querySelectorAll(".section, .entry, li, p, .tag-line"))
+      .map(element => element.getBoundingClientRect().bottom - sourceTop)
+      .filter(value => Number.isFinite(value) && value > 0)
+      .sort((a, b) => a - b);
+    nextPagesRoot.removeChild(sourceClone);
+    const firstPageContentHeight = pageHeight - pageEdgeGap;
+    const snapLimit = 160;
+    const minPageFill = 420;
+    const pageStarts = [];
+    const pageBreaks = [];
+    let contentOffset = 0;
+    let pageIndex = 0;
+
+    function choosePageBreak(target, start) {
+      if (target >= contentHeight) {
+        return contentHeight;
       }
+
+      const previousCandidates = breakCandidates.filter(candidate => candidate > start + minPageFill && candidate <= target);
+      const previous = previousCandidates.at(-1);
+      if (previous && target - previous <= snapLimit) {
+        return previous;
+      }
+
+      const next = breakCandidates.find(candidate => candidate > target && candidate - target <= snapLimit);
+      return next || target;
+    }
+
+    while (contentOffset < contentHeight - 0.5) {
+      const capacity = pageIndex === 0 ? firstPageContentHeight : safePageHeight;
+      const targetBreak = contentOffset + capacity;
+      const nextBreak = choosePageBreak(targetBreak, contentOffset);
+      pageStarts.push(contentOffset);
+      pageBreaks.push(nextBreak);
+      if (nextBreak >= contentHeight) {
+        break;
+      }
+      contentOffset = nextBreak;
+      pageIndex += 1;
+    }
+
+    pageStarts.forEach((start, index) => {
+      const page = createPage();
+      const viewport = document.createElement("div");
+      const viewportTop = index === 0 ? 0 : pageEdgeGap;
+      const viewportHeight = Math.min(index === 0 ? firstPageContentHeight : safePageHeight, pageBreaks[index] - start);
+      viewport.style.height = `${viewportHeight}px`;
+      viewport.style.overflow = "hidden";
+      viewport.style.marginTop = `${viewportTop}px`;
+      const pageContent = sourceClone.cloneNode(true);
+      pageContent.style.width = "100%";
+      pageContent.style.minHeight = "100%";
+      pageContent.style.margin = "0";
+      pageContent.style.background = "transparent";
+      pageContent.style.boxShadow = "none";
+      pageContent.style.transform = `translateY(${-start}px)`;
+      viewport.appendChild(pageContent);
+      page.appendChild(viewport);
     });
 
     nextPagesRoot.removeAttribute("style");
