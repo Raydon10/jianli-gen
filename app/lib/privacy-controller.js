@@ -7,7 +7,8 @@ import {
   encryptPrivateFields
 } from "./crypto.js";
 import {
-  extractTokenRefs
+  extractTokenRefs,
+  normalizeAiText
 } from "./text.js";
 import {
   createFieldId,
@@ -15,8 +16,7 @@ import {
   createInitialPrivateFields,
   ensureInitialPrivateFields,
   getPrivateFieldValidation,
-  getFieldColorMap,
-  getTokenMappings,
+  maskPublicTextForStorage,
   normalizeFieldType,
   privateDirty,
   privateFingerprint,
@@ -382,7 +382,7 @@ export function setupPrivacyController(state, api) {
 
   api.saveMaskedPublicData = async function saveMaskedPublicData() {
     api.refreshPublicDraftFromEditor?.();
-    const payload = state.maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields));
+    const payload = maskPublicTextForStorage(state);
 
     const response = await fetch("/api/skill-masked-resume", {
       method: "PUT",
@@ -396,6 +396,7 @@ export function setupPrivacyController(state, api) {
 
     state.appState = await response.json();
     state.savedMaskedPublicMarkdown = payload;
+    state.publicDraftMarkdown = payload;
     api.renderStatus();
   };
 
@@ -763,7 +764,7 @@ export function setupPrivacyController(state, api) {
 
       const maskedResponse = await api.apiRead("/api/skill-masked-resume");
       if (maskedResponse) {
-        state.savedMaskedPublicMarkdown = await maskedResponse.text();
+        state.savedMaskedPublicMarkdown = normalizeAiText(await maskedResponse.text()).trim();
       } else {
         state.savedMaskedPublicMarkdown = "";
       }

@@ -285,6 +285,16 @@ export function setupAiController(state, api) {
     if (!state.resumePreview) {
       return;
     }
+    const isTemplatePreview = Boolean(options.templatePreview);
+    if (state.resumePreviewTitle) {
+      state.resumePreviewTitle.textContent = isTemplatePreview ? "模板预览" : "简历预览";
+    }
+    if (state.printButton) {
+      state.printButton.hidden = isTemplatePreview;
+    }
+    if (state.exportInfo) {
+      state.exportInfo.hidden = isTemplatePreview;
+    }
     const previewHtml = prepareResumePreviewHtml(html);
     state.currentResumeHtml = previewHtml;
     state.currentResumeResolved = Boolean(options.privateResolved);
@@ -292,8 +302,8 @@ export function setupAiController(state, api) {
       ? Object.fromEntries(state.fields.map(field => [field.id || field.key, getRenderedPrivateValue(field)]))
       : {};
     state.resumePreview.innerHTML = `
-      ${options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
-      <div class="resume-private-hint" id="previewSaveHint" hidden>隐私信息有变更，保存后更新预览</div>
+      ${!isTemplatePreview && options.privateLockedHint ? '<div class="resume-private-hint">解锁隐私信息以显示敏感内容</div>' : ""}
+      ${!isTemplatePreview ? '<div class="resume-private-hint" id="previewSaveHint" hidden>隐私信息有变更，保存后更新预览</div>' : ""}
       <div class="resume-paper">
         <iframe class="resume-frame" title="${escapeHtml(title)}" scrolling="no" srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>

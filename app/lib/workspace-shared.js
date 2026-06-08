@@ -301,8 +301,22 @@ export function applySample(state, sample, options = {}) {
   }
 }
 
+export function maskPublicTextForStorage(state, text = state.publicDraftMarkdown) {
+  let output = normalizeAiText(text);
+  getTokenMappings(state).forEach(mapping => {
+    const token = mapping.token || getTokenStorageLabel(mapping);
+    if (!mapping.value) {
+      return;
+    }
+    output = output.replace(new RegExp(escapeRegExp(mapping.value), "g"), token);
+  });
+  return output.trim();
+}
+
 export function publicDirty(state) {
-  return maskText(state.publicDraftMarkdown, getTokenMappings(state), getFieldColorMap(state.fields)) !== state.savedMaskedPublicMarkdown;
+  const current = maskPublicTextForStorage(state);
+  const saved = normalizeAiText(state.savedMaskedPublicMarkdown).trim();
+  return current !== saved;
 }
 
 export function privateDirty(state) {

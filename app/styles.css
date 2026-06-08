@@ -199,6 +199,10 @@ h2 {
   line-height: 1;
 }
 
+.export-info[hidden] {
+  display: none !important;
+}
+
 .export-info-tooltip {
   position: absolute;
   right: 0;
@@ -936,22 +940,23 @@ textarea {
   z-index: 3;
   display: block;
   margin: 12px auto 0;
-  padding: 7px 12px;
+  padding: 9px 16px;
   transform: translateX(-50%);
-  border: 1px solid var(--line);
+  border: 1px solid #158052;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 18px rgba(18, 28, 45, 0.12);
-  color: var(--text);
+  background: #15995f;
+  box-shadow: 0 10px 22px rgba(34, 133, 72, 0.28);
+  color: #fff;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 750;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .template-preview-close:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent), white 94%);
+  border-color: #0f6f47;
+  color: #fff;
+  background: #128352;
+  box-shadow: 0 12px 26px rgba(34, 133, 72, 0.34);
 }
 
 .resume-empty-state {
