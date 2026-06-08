@@ -933,6 +933,51 @@ textarea {
   text-align: left;
 }
 
+.resume-density-controls {
+  position: fixed;
+  right: var(--density-controls-right, 24px);
+  bottom: var(--density-controls-bottom, 24px);
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgba(217, 222, 230, 0.78);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 20px rgba(18, 28, 45, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.density-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid #cbd4df;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #46515d;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.density-button:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: var(--text);
+}
+
+.density-button:disabled {
+  border-color: var(--line);
+  background: #edf1f4;
+  color: #9aa3ad;
+  cursor: not-allowed;
+}
+
 .template-preview-close {
   position: sticky;
   left: 50%;

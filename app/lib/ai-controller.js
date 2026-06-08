@@ -23,6 +23,9 @@ function normalizePlainTextSegment(text, caretIndex = null) {
 }
 
 export function setupAiController(state, api) {
+  const minResumeDensity = 0.88;
+  const maxResumeDensity = 1.24;
+
   function paginateResumeDocument() {
     function getResolvedResumePageBackground(pageRoot) {
       const currentPage = pageRoot?.closest?.(".resume-page");
@@ -189,6 +192,19 @@ export function setupAiController(state, api) {
     return `<!doctype html>${doc.documentElement.outerHTML}`;
   }
 
+  function clampResumeDensity(value) {
+    return Math.min(maxResumeDensity, Math.max(minResumeDensity, Number(value) || 1));
+  }
+
+  function applyResumeDensity(doc, density = state.resumeDensity) {
+    if (!doc?.documentElement) {
+      return;
+    }
+    const nextDensity = clampResumeDensity(density);
+    state.resumeDensity = nextDensity;
+    doc.documentElement.style.setProperty("--resume-density", String(nextDensity));
+  }
+
   function syncResumeFrameHeight(iframe) {
     const paper = state.resumePreview?.querySelector(".resume-paper");
     const doc = iframe?.contentDocument;
@@ -196,6 +212,49 @@ export function setupAiController(state, api) {
       return;
     }
     paper.style.setProperty("--paper-height", `${getResumeFrameHeight(doc)}px`);
+  }
+
+  function updateDensityControls() {
+    state.resumePreview?.querySelectorAll("[data-density-action]")?.forEach(control => {
+      const action = control.dataset.densityAction;
+      control.disabled = action === "decrease"
+        ? state.resumeDensity <= minResumeDensity
+        : state.resumeDensity >= maxResumeDensity;
+    });
+  }
+
+  function positionDensityControls() {
+    const controls = state.resumePreview?.querySelector(".resume-density-controls");
+    if (!controls || !state.resumePreview) {
+      return;
+    }
+    const rect = state.resumePreview.getBoundingClientRect();
+    controls.style.setProperty("--density-controls-right", `${Math.max(12, window.innerWidth - rect.right + 12)}px`);
+    controls.style.setProperty("--density-controls-bottom", `${Math.max(12, window.innerHeight - rect.bottom + 12)}px`);
+  }
+
+  function renderLoadedResumeFrame(iframe, density = state.resumeDensity) {
+    return new Promise(resolve => {
+      if (!iframe) {
+        resolve(false);
+        return;
+      }
+
+      const finish = () => {
+        window.requestAnimationFrame(() => {
+          applyResumeDensity(iframe.contentDocument, density);
+          iframe.contentWindow?.__paginateResume?.();
+          state.currentResumeHtml = serializeResumeDocument(iframe.contentDocument);
+          syncResumeFrameHeight(iframe);
+          updateDensityControls();
+          positionDensityControls();
+          resolve(true);
+        });
+      };
+
+      iframe.addEventListener("load", finish, { once: true });
+      iframe.srcdoc = state.currentResumeSourceHtml || state.currentResumeHtml || "";
+    });
   }
 
   function getRenderedPrivateValue(field) {
@@ -273,8 +332,36 @@ export function setupAiController(state, api) {
         height: auto;
         object-fit: contain;
       }
+      :root {
+        --resume-density: 1;
+      }
+      .resume .info,
+      .resume .meta,
+      .resume .meta-box,
+      .resume .section-body,
+      .resume .entry-note,
+      .resume .tag-line,
+      .resume p,
+      .resume li {
+        line-height: calc(1em * 1.6 * var(--resume-density)) !important;
+      }
+      .resume .section,
+      .resume section {
+        margin-top: calc(22px * var(--resume-density)) !important;
+      }
+      .resume .entry {
+        margin-top: calc(12px * var(--resume-density)) !important;
+      }
+      .resume ul,
+      .resume ol {
+        margin-top: calc(7px * var(--resume-density)) !important;
+      }
+      .resume li {
+        margin-top: calc(4px * var(--resume-density)) !important;
+        margin-bottom: calc(4px * var(--resume-density)) !important;
+      }
     </style>`;
-    const previewScript = `<script>window.__paginateResume=${paginateResumeDocument.toString()};window.addEventListener("load",function(){window.__paginateResume&&window.__paginateResume();});</script>`;
+    const previewScript = `<script>window.__paginateResume=${paginateResumeDocument.toString()};</script>`;
     if (/<\/head>/i.test(html)) {
       return html.replace(/<\/head>/i, `${previewStyle}${previewScript}</head>`);
     }
@@ -296,6 +383,7 @@ export function setupAiController(state, api) {
       state.exportInfo.hidden = isTemplatePreview;
     }
     const previewHtml = prepareResumePreviewHtml(html);
+    state.currentResumeSourceHtml = previewHtml;
     state.currentResumeHtml = previewHtml;
     state.currentResumeResolved = Boolean(options.privateResolved);
     state.currentResumeRenderedValues = options.privateResolved
@@ -307,13 +395,41 @@ export function setupAiController(state, api) {
       <div class="resume-paper">
         <iframe class="resume-frame" title="${escapeHtml(title)}" scrolling="no" srcdoc="${escapeHtml(previewHtml)}"></iframe>
       </div>
+      ${!isTemplatePreview ? `
+        <div class="resume-density-controls" aria-label="简历间距调整">
+          <button class="density-button" type="button" data-density-action="decrease">− 间距</button>
+          <button class="density-button" type="button" data-density-action="increase">＋ 间距</button>
+        </div>
+      ` : ""}
       ${options.templatePreview ? '<button class="template-preview-close" type="button">关闭模板预览</button>' : ""}
     `;
     state.previewSaveHint = state.resumePreview.querySelector("#previewSaveHint");
     const iframe = state.resumePreview.querySelector(".resume-frame");
-    iframe?.addEventListener("load", () => {
-      window.requestAnimationFrame(() => syncResumeFrameHeight(iframe));
-    }, { once: true });
+    renderLoadedResumeFrame(iframe);
+    state.resumePreview.querySelectorAll("[data-density-action]")?.forEach(button => {
+      button.addEventListener("click", async () => {
+        const delta = button.dataset.densityAction === "increase" ? 0.03 : -0.03;
+        const nextDensity = clampResumeDensity(state.resumeDensity + delta);
+        if (nextDensity === state.resumeDensity) {
+          return;
+        }
+        applyResumeDensity(iframe?.contentDocument, nextDensity);
+        updateDensityControls();
+        await renderLoadedResumeFrame(iframe, nextDensity);
+      });
+    });
+    positionDensityControls();
+    state.removeDensityControlsPositioner?.();
+    if (!isTemplatePreview) {
+      window.addEventListener("resize", positionDensityControls);
+      state.resumePreview.addEventListener("scroll", positionDensityControls);
+      state.removeDensityControlsPositioner = () => {
+        window.removeEventListener("resize", positionDensityControls);
+        state.resumePreview?.removeEventListener("scroll", positionDensityControls);
+      };
+    } else {
+      state.removeDensityControlsPositioner = null;
+    }
     state.resumePreview.querySelector(".template-preview-close")?.addEventListener("click", () => {
       api.restoreResumePreview?.();
     });
@@ -399,9 +515,10 @@ export function setupAiController(state, api) {
     state.currentResumeRenderedValues = Object.fromEntries(
       state.fields.map(field => [field.id || field.key, getRenderedPrivateValue(field)])
     );
-    iframe?.contentWindow?.__paginateResume?.();
-    state.currentResumeHtml = serializeResumeDocument(doc);
-    syncResumeFrameHeight(iframe);
+    if (state.aiOutputSourceHtml) {
+      state.currentResumeSourceHtml = prepareResumePreviewHtml(resolvePrivateTokens(state.aiOutputSourceHtml));
+    }
+    renderLoadedResumeFrame(iframe);
     return changed;
   }
 
@@ -458,6 +575,7 @@ export function setupAiController(state, api) {
       return;
     }
     state.currentResumeHtml = "";
+    state.currentResumeSourceHtml = "";
     state.resumePreview.innerHTML = `<div class="resume-empty-state">请用 Skill 生成简历</div>`;
   }
 
