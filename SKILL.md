@@ -1,6 +1,6 @@
 ---
-name: 简历 Gen
-description: 保护隐私的简历 Skill。隐私信息加密管理，轻松生成专业简历。
+name: jianli-gen
+description: Privacy-preserving resume generation from masked resume input and HTML templates. Use when Codex needs to create or update a professional resume HTML file, match a resume to a JD, manage resume templates, or help install/start the local Jianli Gen resume app without exposing private information.
 ---
 
 # 简历 Gen

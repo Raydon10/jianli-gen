@@ -1,6 +1,6 @@
 interface:
-  display_name: "Jianli Gen"
-  short_description: "Generate Skill resume HTML from masked input."
+  display_name: "简历 Gen"
+  short_description: "Generate private resume HTML safely."
   default_prompt: "Use $jianli-gen to generate the latest resume from my saved masked resume and selected template."
 policy:
   allow_implicit_invocation: true
